@@ -28,7 +28,7 @@ def register():
             return jsonify({'error': 'Email has been used'})
     password = bcrypt.generate_password_hash(request.json["password"]).decode("utf-8")
     join = name + "," + email + "," + password
-    access_token = fernet.encrypt(join.encode())
+    access_token = fernet.encrypt(join.encode()).decode()
     send_activation_email(name, email, access_token)
     return jsonify({'message': 'Please check email to activate your account'})
 
