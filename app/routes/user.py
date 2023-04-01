@@ -34,7 +34,7 @@ def register():
 
 @user_bp.route("/activate/<token>",methods=["GET"])
 def activate(token):
-    decToken = fernet.decrypt(token).decode()
+    decToken = fernet.decrypt(token.encode()).decode()
     split = decToken.split(",")
     name = split[0]
     email = split[1]

@@ -25,4 +25,6 @@ def get_mail_port():
     return os.getenv('MAIL_PORT')
 
 
-
+# DATABASE_USERNAME="neo4j"
+# DATABASE_PASSWORD="neo4j123"
+# DATABASE_URL="bolt://103.59.95.88:7687"
