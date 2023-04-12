@@ -25,7 +25,7 @@ def register():
     with driver.session() as session:
         user = User.find_by_email(session, email)
         if user:
-            return jsonify({'error': 'Email has been used'})
+            return jsonify({'error': 'Email has been used'}),404
     password = bcrypt.generate_password_hash(request.json["password"]).decode("utf-8")
     join = name + "," + email + "," + password
     access_token = fernet.encrypt(join.encode()).decode()
@@ -43,7 +43,7 @@ def activate(token):
     with driver.session() as session:
         user.create(session)
     # redirect ke aplikasi
-    return jsonify({'message': 'Account activated.'})
+    return jsonify({'message': 'Account activated.'}),201
 
 def send_activation_email(name, email, token):
     msg = MIMEMultipart('alternative')
@@ -54,7 +54,7 @@ def send_activation_email(name, email, token):
     part2 = MIMEText(html_file, 'html')
     msg.attach(part2)
 
-    s = smtplib.SMTP(get_mail_server(), get_mail_port())
+    s = smtplib.SMTP(get_mail_server(), get_mail_port(), timeout= 200)
     s.starttls()
     s.login(get_mail_username(), get_mail_password())
     s.sendmail(get_mail_username(), email, msg.as_string())
@@ -78,5 +78,12 @@ def choose_preference():
     email = request.json["email"]
     kategori = request.json["preference"]
     with driver.session() as session:
-        user = User.create_preference(session, email, kategori)
-    return jsonify({'message': 'User preferences saved successfully'}),200
+        user = User.find_by_email(session, email)
+        if user:
+            result = User.create_preference(session, email, kategori)
+            if result:
+                return jsonify({'message': 'User preferences saved successfully'}),201
+            else :
+                return jsonify({'message':'User preferences failed to save'}),400
+        else :
+            return jsonify({'message' : 'User not found'}),404

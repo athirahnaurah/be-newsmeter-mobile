@@ -18,18 +18,15 @@ class User:
             return User(name=record['name'], email=record['email'], password=record['password'])
         else:
             return None
-    
-    # def find_by_activation_token(session, token):
-    #     result = session.run("MATCH (u:User {activation_token: $token}) RETURN u.name as name, u.email as email, u.password as password", token=token)
-    #     record = result.single()
-    #     if record:
-    #         return User(name=record['name'], email=record['email'], password=record['password'])
-    #     else:
-    #         return None
-    
-    # def activate(self, session):
-    #     session.run("MATCH (u:User {email: $email}) SET u.active = true RETURN u", email=self.email)
 
     def create_preference(session,email,kategori):
-        for a in kategori:
-            session.run("MATCH (a:User {email: $email}), (b:Kategori {name: $kategori}) CREATE (a)-[r: HAS_PREFERENCE]->(b) RETURN a,b",email=email,kategori=a)
+        for k in kategori:
+            result = session.run(
+                "MATCH (a:User {email: $email}), (b:Kategori {name: $kategori})"
+                "CREATE (a)-[r: HAS_PREFERENCE]->(b) RETURN a.email, b.name", 
+                email=email, kategori = k
+                )
+        if result:
+            return "Relation saved succesfully"
+        else:
+            return None
