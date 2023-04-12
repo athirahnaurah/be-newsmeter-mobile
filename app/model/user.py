@@ -26,7 +26,11 @@ class User:
                 "CREATE (a)-[r: HAS_PREFERENCE]->(b) RETURN a.email, b.name", 
                 email=email, kategori = k
                 )
-        if result:
-            return "Relation saved succesfully"
-        else:
-            return None
+        return result
+    
+    def find_preference(session, email):
+        result = session.run("MATCH(u:User {email: $email})-[r:HAS_PREFERENCE]->(k:Kategori) RETURN k.name", email=email)
+        data = []
+        for record in result:
+            data.append((record["k.name"]))
+        return data
