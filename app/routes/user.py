@@ -10,6 +10,7 @@ from flask_mail import Message
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import json
 
 
 user_bp = Blueprint('user_bp', __name__)
@@ -73,6 +74,18 @@ def login():
             return jsonify({"access_token": access_token}), 200
         else:
             return "Invalid username or password", 401
+
+@user_bp.route("/user", methods=["GET"])
+@jwt_required()
+def get_user_login():
+    current_user = get_jwt_identity()
+    with driver.session() as session:
+        user = User.find_by_email(session, current_user)
+    print(user.name, user.email)
+    if user :
+        return jsonify({'name':user.name, 'email':user.email}),200
+    else :
+        return jsonify({'message':'User not found'}),404
 
 @user_bp.route("/preference",methods=["POST"])
 def choose_preference():
