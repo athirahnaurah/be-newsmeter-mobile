@@ -1,10 +1,10 @@
 import os
 from cryptography.fernet import Fernet
-from config import get_db_username, get_db_password, get_db_url, get_mail_username, get_mail_password, get_mail_server, get_mail_port
-from flask import Blueprint, jsonify, request, render_template
+from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
+from utils.connection import create_neo4j_connection
+from flask import Blueprint, jsonify, request
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from neo4j import GraphDatabase, basic_auth
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
 from model.user import User
 from flask_mail import Message
 import smtplib
@@ -18,7 +18,7 @@ bcrypt = Bcrypt()
 key = Fernet.generate_key()
 fernet = Fernet(key)
 
-driver = GraphDatabase.driver(get_db_url(), auth=basic_auth(get_db_username(),get_db_password()))
+driver = create_neo4j_connection()
 
 @user_bp.route("/register", methods=["POST"])
 def register():
@@ -75,13 +75,19 @@ def login():
         else:
             return "Invalid username or password", 401
 
+@user_bp.route("/logout", methods=["GET"])
+@jwt_required()
+def logout():
+    response = jsonify({'message': 'Logout berhasil'})
+    unset_jwt_cookies(response)
+    return response
+
 @user_bp.route("/user", methods=["GET"])
 @jwt_required()
 def get_user_login():
     current_user = get_jwt_identity()
     with driver.session() as session:
         user = User.find_by_email(session, current_user)
-    print(user.name, user.email)
     if user :
         return jsonify({'name':user.name, 'email':user.email}),200
     else :

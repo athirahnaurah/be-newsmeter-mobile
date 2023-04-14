@@ -34,3 +34,11 @@ class User:
         for record in result:
             data.append((record["k.name"]))
         return data
+
+    def find_history(session, email, mongoID):
+        result = session.run("MATCH (u:User)-[r:HAS_READ]->(b:Berita) WHERE u.email = $email AND b.mongoID = $mongoID RETURN b.title, b.content", email = email, mongoID = mongoID)
+        return result.single()
+    
+    def save_history(session, email, mongoID, time):
+        result = session.run("MATCH (a:User), (b:Berita) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (a)-[r: HAS_READ {timestamp: $time}]->(b) RETURN a,b", email = email, mongoID = mongoID, time = time)
+        return result
