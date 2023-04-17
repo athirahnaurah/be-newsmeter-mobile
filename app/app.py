@@ -5,7 +5,13 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager
 from routes.user import user_bp
 from routes.history import history_bp
-from datetime import timedelta
+from datetime import timedelta, datetime
+
+import time
+current_time = time.time()
+print(current_time)
+date_time = datetime.fromtimestamp(current_time)
+print("The date and time is:", date_time)
 
 app = Flask(__name__)
 load_dotenv()
@@ -15,6 +21,7 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=90)
 jwt = JWTManager(app)
 app.register_blueprint(user_bp)
 app.register_blueprint(history_bp)
+
 
 if __name__ == "__main__":
     app.run()

@@ -39,6 +39,18 @@ class User:
         result = session.run("MATCH (u:User)-[r:HAS_READ]->(b:Berita) WHERE u.email = $email AND b.mongoID = $mongoID RETURN b.title, b.content", email = email, mongoID = mongoID)
         return result.single()
     
+    def find_history_periodly(session, email, start, end):
+        result = session.run("MATCH (u:User {email: $email})-[r:HAS_READ]->(b:Berita) WHERE r.timestamp >= $start and r.timestamp <= $end return u.email, b.mongoID, b.content, b.date", email = email, start = start, end = end)
+        data =[]
+        news = {}
+        for record in result:
+            news["user"] = record["u.email"]
+            news["id_berita"] = record["b.mongoID"]
+            news["content"] = record["b.content"]
+            news["waktu_terbit"] = record["b.date"]
+            data.append(news.copy())
+        return data
+    
     def save_history(session, email, mongoID, time):
         result = session.run("MATCH (a:User), (b:Berita) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (a)-[r: HAS_READ {timestamp: $time}]->(b) RETURN a,b", email = email, mongoID = mongoID, time = time)
         return result

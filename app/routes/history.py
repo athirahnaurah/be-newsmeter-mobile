@@ -35,6 +35,3 @@ def check_read(user, mongoID, media):
                 view = Media.find_total_view(session, media)
                 view += 1
                 Media.set_total_view(session, view, media)
-        
-
-        
