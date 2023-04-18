@@ -6,14 +6,10 @@ from flask_jwt_extended import create_access_token, jwt_required, JWTManager
 from routes.user import user_bp
 from routes.history import history_bp
 from datetime import timedelta, datetime
-
-import time
-current_time = time.time()
-print(current_time)
-date_time = datetime.fromtimestamp(current_time)
-print("The date and time is:", date_time)
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 load_dotenv()
 bcrypt = Bcrypt(app)
 app.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
