@@ -2,7 +2,7 @@ import os
 from cryptography.fernet import Fernet
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, redirect
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
 from model.user import User
@@ -44,8 +44,8 @@ def activate(token):
     user = User(name, email, password)
     with driver.session() as session:
         user.create(session)
-    # redirect ke aplikasi
-    return jsonify({'message': 'Account activated.'}),201
+    url ='newsmeter://minatkategori/email'
+    return redirect(url, code=302)
 
 def send_activation_email(name, email, token):
     msg = MIMEMultipart('alternative')
