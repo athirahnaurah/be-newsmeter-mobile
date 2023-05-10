@@ -11,3 +11,13 @@ class Media:
     def find_total_view(session, media):
         result = session.run("MATCH(m:Media) WHERE m.name = $name return m.view", name = media)
         return result.single()[0]
+
+    def get_all_media(session):
+        result = session.run("MATCH(m:Media) RETURN m.name, m.view")
+        data = []
+        media = {}
+        for record in result:
+            media["nama"] = record["m.name"]
+            media["view"] = record["m.view"]
+            data.append(media.copy())
+        return data

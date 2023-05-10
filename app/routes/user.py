@@ -11,6 +11,7 @@ from flask_jwt_extended import (
     unset_jwt_cookies,
 )
 from model.user import User
+from model.media import Media
 from flask_mail import Message
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -134,5 +135,14 @@ def get_preference():
         preference = User.find_preference(session, current_user)
     if preference:
         return jsonify(preference), 200
+    else:
+        return jsonify({"message": "User preferences not found"}), 404
+
+@user_bp.route("/media", methods=["GET"])
+def get_media():
+    with driver.session() as session:
+        media = Media.get_all_media(session)
+    if media:
+        return jsonify(media), 200
     else:
         return jsonify({"message": "User preferences not found"}), 404
