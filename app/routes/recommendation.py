@@ -1,7 +1,7 @@
 import re, requests
 import pandas as pd
 import numpy as np
-import time, datetime
+import datetime
 from flask import Blueprint, jsonify, request
 from nltk.corpus import stopwords
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
@@ -14,6 +14,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
 from model.user import User
+from model.media import Media
 
 driver = create_neo4j_connection()
 
@@ -58,10 +59,12 @@ def preprocess_text(text):
 
 @recommendation_bp.route("/gethistory")
 def get_history(email):
-    email = email
+    email = "naurathirahh@gmail.com"
     time_now = datetime.datetime.now().timestamp()
     time_12_hours_ago = (
-        datetime.datetime.now() - datetime.timedelta(hours=100)
+        # 12
+        datetime.datetime.now()
+        - datetime.timedelta(hours=100)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -76,30 +79,31 @@ def get_history(email):
         )
     data = pd.DataFrame.from_dict(data)
     data = data[["_id", "original", "title", "content", "image", "date"]]
-    data["content"] = data["content"].apply(preprocess_text)
+    # data["content"] = data["content"].apply(preprocess_text)
     return data.to_dict("records")
 
 
 @recommendation_bp.route("/getnews")
 def getnews():
-    response = requests.get("http://103.59.95.88/api/get/news/10")
-    data = response.json()
-    df = pd.DataFrame.from_dict(data)
+    # response = requests.get("http://103.59.95.88/api/get/news/10")
+    # data = response.json()
+    # df = pd.DataFrame.from_dict(data)
+    df = pd.read_csv("D:/KULIAH/polban_smt_6/ta/data.csv")
     df = df[
         ["_id", "original", "title", "content", "image", "date", "kategori", "media"]
     ]
-    df["content"] = df["content"].apply(preprocess_text)
+    # df["content"] = df["content"].apply(preprocess_text)
     return df.to_dict("records")
 
 
 @recommendation_bp.route("/test")
-def combined():
+def calculate_recommendation():
     email = "naurathirahh@gmail.com"
     history_list = get_history(email)
     df = getnews()
     recommendation_data = []
-    for i in range(0, len(df), 10):
-        temp_df = df[i : i + 10]
+    for i in range(0, len(df), 1000):
+        temp_df = df[i : i + 1000]
         for j in range(len(history_list)):
             concat_df = pd.concat(
                 [
@@ -109,6 +113,20 @@ def combined():
                 ignore_index=True,
             )
             concat_df.insert(0, "id", range(1, 1 + len(concat_df)))
+
+            # Add views column to concat_df
+            concat_df["view"] = 0
+
+            # Get media data
+            media = get_media()
+
+            # Add views count to concat_df based on media name
+            for m in media:
+                medianame = m["nama"]
+                concat_df.loc[concat_df["media"] == medianame, "view"] = m["view"]
+
+            print(concat_df)
+            print(len(concat_df))
             # Create the TF-IDF matrix
             tf = TfidfVectorizer()
             # Transform TFIDF to Content
@@ -136,7 +154,7 @@ def combined():
             recs = results.get(1, [])[:3]
             for rec in recs:
                 recommendation = {}
-                recommendation["score"] = str(rec[0])
+                recommendation["score"] = round(rec[0], 2)
                 index = rec[1] - 1
                 # Get the values of the columns that you need
                 recommendation["id_history"] = str(concat_df.loc[0, "_id"])
@@ -147,6 +165,7 @@ def combined():
                 recommendation["date"] = concat_df.loc[index, "date"]
                 recommendation["kategori"] = concat_df.loc[index, "kategori"]
                 recommendation["media"] = concat_df.loc[index, "media"]
+                recommendation["view"] = str(concat_df.loc[index, "view"])
                 result["recommendation"].append(recommendation)
             recommendation_data.append(result)
 
@@ -158,35 +177,19 @@ def combined():
         # sort recommendations based on score and then views in descending order
         combined_recommendations = sorted(
             combined_recommendations,
-            key=lambda x: (-float(x["score"]), x["date"]),
-            reverse=False,
+            key=lambda x: (x["score"], x["date"], x["view"]),
+            reverse=(True),
         )
+        combined_recommendations = combined_recommendations[:45]
 
     # Return combined recommendations as JSON response
     return jsonify({"email": email, "recommendations": combined_recommendations})
 
 
-def calculate_recommendation(concat_df):
-    # Create the TF-IDF matrix
-    tf = TfidfVectorizer()
-    # Transform TFIDF to Content
-    tfidf_matrix = tf.fit_transform(concat_df["content"])
-    A = tfidf_matrix.T
-    # SVD & Konversi Matrix Sparse -> Dense
-    U, s, VT = svd(A.todense())
-    V = VT.T
-    # Perkalian Matriks V dan S
-    VS = np.dot(V, np.diag(s))
-    # Cosine similarity matriks VS
-    cosine_similarities = cosine_similarity(VS)
-    results = {}
-    for idx, row in concat_df.iterrows():
-        similar_indices = cosine_similarities[idx].argsort()[:-100:-1]
-        similar_items = [
-            (cosine_similarities[idx][i], concat_df["id"][i]) for i in similar_indices
-        ]
-        # First item is the item itself, so remove it.
-        # Each dictionary entry is like: [(1,2), (3,4)], with each tuple being (score, item_id)
-        results[row["id"]] = similar_items[1:]
+@recommendation_bp.route("/getmedia")
+def get_media():
+    with driver.session() as session:
+        media_data = Media.get_all_media(session)
 
-    return results
+    media_list = [dict(m) for m in media_data]
+    return media_list
