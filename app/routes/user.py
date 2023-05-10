@@ -137,12 +137,3 @@ def get_preference():
         return jsonify(preference), 200
     else:
         return jsonify({"message": "User preferences not found"}), 404
-
-@user_bp.route("/media", methods=["GET"])
-def get_media():
-    with driver.session() as session:
-        media = Media.get_all_media(session)
-    if media:
-        return jsonify(media), 200
-    else:
-        return jsonify({"message": "User preferences not found"}), 404
