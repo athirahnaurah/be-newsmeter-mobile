@@ -59,12 +59,12 @@ def preprocess_text(text):
 
 @recommendation_bp.route("/gethistory")
 def get_history(email):
-    email = "naurathirahh@gmail.com"
+    email = email
     time_now = datetime.datetime.now().timestamp()
     time_12_hours_ago = (
-        # 12
+        # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=100)
+        - datetime.timedelta(hours=12)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -77,22 +77,24 @@ def get_history(email):
         data = User.find_history_periodly(
             session, email, time_12_hours_ago_str, time_now_str
         )
+    if not data:
+        return {"message": "No data found"}
     data = pd.DataFrame.from_dict(data)
     data = data[["_id", "original", "title", "content", "image", "date"]]
-    # data["content"] = data["content"].apply(preprocess_text)
+    data["preprocessed_content"] = data["content"].apply(preprocess_text)
     return data.to_dict("records")
 
 
 @recommendation_bp.route("/getnews")
 def getnews():
-    # response = requests.get("http://103.59.95.88/api/get/news/10")
-    # data = response.json()
-    # df = pd.DataFrame.from_dict(data)
-    df = pd.read_csv("D:/KULIAH/polban_smt_6/ta/data.csv")
+    response = requests.get("http://103.59.95.88/api/get/news/10")
+    data = response.json()
+    df = pd.DataFrame.from_dict(data)
+    # df = pd.read_csv("D:/KULIAH/polban_smt_6/ta/10data.csv")
     df = df[
         ["_id", "original", "title", "content", "image", "date", "kategori", "media"]
     ]
-    # df["content"] = df["content"].apply(preprocess_text)
+    df["preprocessed_content"] = df["content"].apply(preprocess_text)
     return df.to_dict("records")
 
 
@@ -125,12 +127,11 @@ def calculate_recommendation():
                 medianame = m["nama"]
                 concat_df.loc[concat_df["media"] == medianame, "view"] = m["view"]
 
-            print(concat_df)
-            print(len(concat_df))
             # Create the TF-IDF matrix
             tf = TfidfVectorizer()
+            concat_df["preprocessed_content"].fillna("", inplace=True)
             # Transform TFIDF to Content
-            tfidf_matrix = tf.fit_transform(concat_df["content"])
+            tfidf_matrix = tf.fit_transform(concat_df["preprocessed_content"])
             A = tfidf_matrix.T
             # SVD & Konversi Matrix Sparse -> Dense
             U, s, VT = svd(A.todense())
@@ -165,25 +166,52 @@ def calculate_recommendation():
                 recommendation["date"] = concat_df.loc[index, "date"]
                 recommendation["kategori"] = concat_df.loc[index, "kategori"]
                 recommendation["media"] = concat_df.loc[index, "media"]
+                recommendation["content"] = concat_df.loc[index, "content"]
                 recommendation["view"] = str(concat_df.loc[index, "view"])
                 result["recommendation"].append(recommendation)
             recommendation_data.append(result)
+            print("dataaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa rekomendasi")
+            print(recommendation_data)
 
-    # Combine all recommendation results into one list
-    combined_recommendations = []
-    for result in recommendation_data:
-        # combined_recommendations["email"] = email
-        combined_recommendations.extend(result["recommendation"])
-        # sort recommendations based on score and then views in descending order
-        combined_recommendations = sorted(
-            combined_recommendations,
-            key=lambda x: (x["score"], x["date"], x["view"]),
-            reverse=(True),
-        )
-        combined_recommendations = combined_recommendations[:45]
+        # Combine all recommendation results into one list
+        combined_recommendations = []
+        for result in recommendation_data:
+            # combined_recommendations["email"] = email
+            combined_recommendations.extend(result["recommendation"])
+            # sort recommendations based on score and then views in descending order
+            combined_recommendations = sorted(
+                combined_recommendations,
+                key=lambda x: (x["score"], x["date"], x["view"]),
+                reverse=(True),
+            )
+
+        # Create a dictionary to store unique recommendations based on article ID
+        unique_recommendations = {}
+
+        # Iterate through each recommendation in combined_recommendations
+        for recommendation in combined_recommendations:
+            id = recommendation["_id"]
+
+            # If article ID is not already in unique_recommendations or has lower score than existing recommendation,
+            # add the recommendation to unique_recommendations
+            if (
+                id not in unique_recommendations
+                or recommendation["score"] > unique_recommendations[id]["score"]
+            ):
+                unique_recommendations[id] = recommendation
+
+        # Convert the dictionary of unique recommendations back into a list
+        unique_recommendations_list = list(unique_recommendations.values())
+
+        unique_recommendations_list = unique_recommendations_list[:45]
 
     # Return combined recommendations as JSON response
-    return jsonify({"email": email, "recommendations": combined_recommendations})
+    return jsonify({"email": email, "recommendations": unique_recommendations_list})
+
+
+# @recommendation_bp.route("/save")
+# def save_recommendation():
+#     df = getnews()
 
 
 @recommendation_bp.route("/getmedia")
