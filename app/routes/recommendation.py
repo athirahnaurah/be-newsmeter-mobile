@@ -87,7 +87,7 @@ def get_history(email):
 
 @recommendation_bp.route("/getnews")
 def getnews():
-    response = requests.get("http://103.59.95.88/api/get/news/10")
+    response = requests.get("http://103.59.95.88/api/get/news/1000")
     data = response.json()
     df = pd.DataFrame.from_dict(data)
     # df = pd.read_csv("D:/KULIAH/polban_smt_6/ta/10data.csv")
