@@ -50,17 +50,16 @@ def remove_stopwords(text):
 
 
 def preprocess_text(text):
-    # text = remove_html_tags(text)
-    # text = stemming(text)
-    # text = case_folding(text)
-    # text = remove_stopwords(text)
+    text = remove_html_tags(text)
+    text = stemming(text)
+    text = case_folding(text)
+    text = remove_stopwords(text)
     return text
 
 
 @recommendation_bp.route("/gethistory")
 def get_history(email):
     email = email
-    # email = "naurathirahh@gmail.com"
     time_now = datetime.datetime.now().timestamp()
     time_12_hours_ago = (
         # edit jam history
@@ -88,12 +87,11 @@ def get_history(email):
 
 @recommendation_bp.route("/getnews")
 def get_news():
-    response = requests.get("http://103.59.95.88/api/get/news/10")
+    response = requests.get("http://103.59.95.88/api/get/news/1000")
     data = response.json()
     if not data:
         return None
     df = pd.DataFrame.from_dict(data)
-    # df = pd.read_csv("D:/KULIAH/polban_smt_6/ta/10data.csv")
     df = df[
         ["_id", "original", "title", "content", "image", "date", "kategori", "media"]
     ]
@@ -113,8 +111,8 @@ def calculate_recommendation():
             return {"message": "No news found"}
         else:
             recommendation_data = []
-            for i in range(0, len(df), 10):
-                temp_df = df[i : i + 10]
+            for i in range(0, len(df), 1000):
+                temp_df = df[i : i + 1000]
                 for j in range(len(history_list)):
                     concat_df = pd.concat(
                         [
@@ -181,7 +179,7 @@ def calculate_recommendation():
                         recommendation["view"] = str(concat_df.loc[index, "view"])
                         result["recommendation"].append(recommendation)
                     recommendation_data.append(result)
-                print(recommendation_data)
+
                 # Combine all recommendation results into one list
                 combined_recommendations = []
                 for result in recommendation_data:
@@ -212,17 +210,18 @@ def calculate_recommendation():
                 # Convert the dictionary of unique recommendations back into a list
                 unique_recommendations_list = list(unique_recommendations.values())
 
+                # Remove recommendations that are already in user's history
+                unique_recommendations_list = [
+                    rec
+                    for rec in unique_recommendations_list
+                    if rec["_id"] not in [h["_id"] for h in history_list]
+                ]
                 unique_recommendations_list = unique_recommendations_list[:45]
 
                 # Return combined recommendations as JSON response
                 return jsonify(
                     {"email": email, "recommendations": unique_recommendations_list}
                 )
-
-
-# @recommendation_bp.route("/save")
-# def save_recommendation():
-#     df = getnews()
 
 
 @recommendation_bp.route("/getmedia")
