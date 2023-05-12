@@ -50,16 +50,17 @@ def remove_stopwords(text):
 
 
 def preprocess_text(text):
-    text = remove_html_tags(text)
-    text = stemming(text)
-    text = case_folding(text)
-    text = remove_stopwords(text)
+    # text = remove_html_tags(text)
+    # text = stemming(text)
+    # text = case_folding(text)
+    # text = remove_stopwords(text)
     return text
 
 
 @recommendation_bp.route("/gethistory")
 def get_history(email):
     email = email
+    # email = "naurathirahh@gmail.com"
     time_now = datetime.datetime.now().timestamp()
     time_12_hours_ago = (
         # edit jam history
@@ -78,7 +79,7 @@ def get_history(email):
             session, email, time_12_hours_ago_str, time_now_str
         )
     if not data:
-        return {"message": "No data found"}
+        return None
     data = pd.DataFrame.from_dict(data)
     data = data[["_id", "original", "title", "content", "image", "date"]]
     data["preprocessed_content"] = data["content"].apply(preprocess_text)
@@ -86,9 +87,11 @@ def get_history(email):
 
 
 @recommendation_bp.route("/getnews")
-def getnews():
-    response = requests.get("http://103.59.95.88/api/get/news/1000")
+def get_news():
+    response = requests.get("http://103.59.95.88/api/get/news/10")
     data = response.json()
+    if not data:
+        return None
     df = pd.DataFrame.from_dict(data)
     # df = pd.read_csv("D:/KULIAH/polban_smt_6/ta/10data.csv")
     df = df[
@@ -102,111 +105,119 @@ def getnews():
 def calculate_recommendation():
     email = "naurathirahh@gmail.com"
     history_list = get_history(email)
-    df = getnews()
-    recommendation_data = []
-    for i in range(0, len(df), 1000):
-        temp_df = df[i : i + 1000]
-        for j in range(len(history_list)):
-            concat_df = pd.concat(
-                [
-                    pd.DataFrame.from_dict(history_list[j], orient="index").T,
-                    pd.DataFrame.from_dict(temp_df),
-                ],
-                ignore_index=True,
-            )
-            concat_df.insert(0, "id", range(1, 1 + len(concat_df)))
+    if not history_list:
+        return {"message": "No history found"}
+    else:
+        df = get_news()
+        if not df:
+            return {"message": "No news found"}
+        else:
+            recommendation_data = []
+            for i in range(0, len(df), 10):
+                temp_df = df[i : i + 10]
+                for j in range(len(history_list)):
+                    concat_df = pd.concat(
+                        [
+                            pd.DataFrame.from_dict(history_list[j], orient="index").T,
+                            pd.DataFrame.from_dict(temp_df),
+                        ],
+                        ignore_index=True,
+                    )
+                    concat_df.insert(0, "id", range(1, 1 + len(concat_df)))
 
-            # Add views column to concat_df
-            concat_df["view"] = 0
+                    # Add views column to concat_df
+                    concat_df["view"] = 0
 
-            # Get media data
-            media = get_media()
+                    # Get media data
+                    media = get_media()
 
-            # Add views count to concat_df based on media name
-            for m in media:
-                medianame = m["nama"]
-                concat_df.loc[concat_df["media"] == medianame, "view"] = m["view"]
+                    # Add views count to concat_df based on media name
+                    for m in media:
+                        medianame = m["nama"]
+                        concat_df.loc[concat_df["media"] == medianame, "view"] = m[
+                            "view"
+                        ]
 
-            # Create the TF-IDF matrix
-            tf = TfidfVectorizer()
-            concat_df["preprocessed_content"].fillna("", inplace=True)
-            # Transform TFIDF to Content
-            tfidf_matrix = tf.fit_transform(concat_df["preprocessed_content"])
-            A = tfidf_matrix.T
-            # SVD & Konversi Matrix Sparse -> Dense
-            U, s, VT = svd(A.todense())
-            V = VT.T
-            # Perkalian Matriks V dan S
-            VS = np.dot(V, np.diag(s))
-            # Cosine similarity matriks VS
-            cosine_similarities = cosine_similarity(VS)
-            results = {}
-            for idx, row in concat_df.iterrows():
-                similar_indices = cosine_similarities[idx].argsort()[:-100:-1]
-                similar_items = [
-                    (cosine_similarities[idx][i], concat_df["id"][i])
-                    for i in similar_indices
-                ]
-                # First item is the item itself, so remove it.
-                # Each dictionary entry is like: [(1,2), (3,4)], with each tuple being (score, item_id)
-                results[row["id"]] = similar_items[1:]
-            result = {}
-            result["recommendation"] = []
-            recs = results.get(1, [])[:3]
-            for rec in recs:
-                recommendation = {}
-                recommendation["score"] = round(rec[0], 2)
-                index = rec[1] - 1
-                # Get the values of the columns that you need
-                recommendation["id_history"] = str(concat_df.loc[0, "_id"])
-                recommendation["_id"] = str(concat_df.loc[index, "_id"])
-                recommendation["original"] = concat_df.loc[index, "original"]
-                recommendation["title"] = concat_df.loc[index, "title"]
-                recommendation["image"] = concat_df.loc[index, "image"]
-                recommendation["date"] = concat_df.loc[index, "date"]
-                recommendation["kategori"] = concat_df.loc[index, "kategori"]
-                recommendation["media"] = concat_df.loc[index, "media"]
-                recommendation["content"] = concat_df.loc[index, "content"]
-                recommendation["view"] = str(concat_df.loc[index, "view"])
-                result["recommendation"].append(recommendation)
-            recommendation_data.append(result)
-            print("dataaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa rekomendasi")
-            print(recommendation_data)
+                    # Create the TF-IDF matrix
+                    tf = TfidfVectorizer()
+                    concat_df["preprocessed_content"].fillna("", inplace=True)
+                    # Transform TFIDF to Content
+                    tfidf_matrix = tf.fit_transform(concat_df["preprocessed_content"])
+                    A = tfidf_matrix.T
+                    # SVD & Konversi Matrix Sparse -> Dense
+                    U, s, VT = svd(A.todense())
+                    V = VT.T
+                    # Perkalian Matriks V dan S
+                    VS = np.dot(V, np.diag(s))
+                    # Cosine similarity matriks VS
+                    cosine_similarities = cosine_similarity(VS)
+                    results = {}
+                    for idx, row in concat_df.iterrows():
+                        similar_indices = cosine_similarities[idx].argsort()[:-100:-1]
+                        similar_items = [
+                            (cosine_similarities[idx][i], concat_df["id"][i])
+                            for i in similar_indices
+                        ]
+                        # First item is the item itself, so remove it.
+                        # Each dictionary entry is like: [(1,2), (3,4)], with each tuple being (score, item_id)
+                        results[row["id"]] = similar_items[1:]
+                    result = {}
+                    result["recommendation"] = []
+                    recs = results.get(1, [])[:3]
+                    for rec in recs:
+                        recommendation = {}
+                        recommendation["score"] = round(rec[0], 2)
+                        index = rec[1] - 1
+                        # Get the values of the columns that you need
+                        recommendation["id_history"] = str(concat_df.loc[0, "_id"])
+                        recommendation["_id"] = str(concat_df.loc[index, "_id"])
+                        recommendation["original"] = concat_df.loc[index, "original"]
+                        recommendation["title"] = concat_df.loc[index, "title"]
+                        recommendation["image"] = concat_df.loc[index, "image"]
+                        recommendation["date"] = concat_df.loc[index, "date"]
+                        recommendation["kategori"] = concat_df.loc[index, "kategori"]
+                        recommendation["media"] = concat_df.loc[index, "media"]
+                        recommendation["content"] = concat_df.loc[index, "content"]
+                        recommendation["view"] = str(concat_df.loc[index, "view"])
+                        result["recommendation"].append(recommendation)
+                    recommendation_data.append(result)
+                print(recommendation_data)
+                # Combine all recommendation results into one list
+                combined_recommendations = []
+                for result in recommendation_data:
+                    # combined_recommendations["email"] = email
+                    combined_recommendations.extend(result["recommendation"])
+                    # sort recommendations based on score and then views in descending order
+                    combined_recommendations = sorted(
+                        combined_recommendations,
+                        key=lambda x: (x["score"], x["date"], x["view"]),
+                        reverse=(True),
+                    )
 
-        # Combine all recommendation results into one list
-        combined_recommendations = []
-        for result in recommendation_data:
-            # combined_recommendations["email"] = email
-            combined_recommendations.extend(result["recommendation"])
-            # sort recommendations based on score and then views in descending order
-            combined_recommendations = sorted(
-                combined_recommendations,
-                key=lambda x: (x["score"], x["date"], x["view"]),
-                reverse=(True),
-            )
+                # Create a dictionary to store unique recommendations based on article ID
+                unique_recommendations = {}
 
-        # Create a dictionary to store unique recommendations based on article ID
-        unique_recommendations = {}
+                # Iterate through each recommendation in combined_recommendations
+                for recommendation in combined_recommendations:
+                    id = recommendation["_id"]
 
-        # Iterate through each recommendation in combined_recommendations
-        for recommendation in combined_recommendations:
-            id = recommendation["_id"]
+                    # If article ID is not already in unique_recommendations or has lower score than existing recommendation,
+                    # add the recommendation to unique_recommendations
+                    if (
+                        id not in unique_recommendations
+                        or recommendation["score"] > unique_recommendations[id]["score"]
+                    ):
+                        unique_recommendations[id] = recommendation
 
-            # If article ID is not already in unique_recommendations or has lower score than existing recommendation,
-            # add the recommendation to unique_recommendations
-            if (
-                id not in unique_recommendations
-                or recommendation["score"] > unique_recommendations[id]["score"]
-            ):
-                unique_recommendations[id] = recommendation
+                # Convert the dictionary of unique recommendations back into a list
+                unique_recommendations_list = list(unique_recommendations.values())
 
-        # Convert the dictionary of unique recommendations back into a list
-        unique_recommendations_list = list(unique_recommendations.values())
+                unique_recommendations_list = unique_recommendations_list[:45]
 
-        unique_recommendations_list = unique_recommendations_list[:45]
-
-    # Return combined recommendations as JSON response
-    return jsonify({"email": email, "recommendations": unique_recommendations_list})
+                # Return combined recommendations as JSON response
+                return jsonify(
+                    {"email": email, "recommendations": unique_recommendations_list}
+                )
 
 
 # @recommendation_bp.route("/save")
