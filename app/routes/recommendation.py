@@ -216,7 +216,11 @@ def calculate_recommendation():
                     for rec in unique_recommendations_list
                     if rec["_id"] not in [h["_id"] for h in history_list]
                 ]
-                unique_recommendations_list = unique_recommendations_list[:45]
+
+                unique_recommendations_list = [
+                    {"index": i + 1, **rec}
+                    for i, rec in enumerate(unique_recommendations_list[:45])
+                ]
 
                 # Return combined recommendations as JSON response
                 return jsonify(
