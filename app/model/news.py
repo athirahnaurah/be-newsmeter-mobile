@@ -20,4 +20,3 @@ class News:
     def create_relation_to_media(session, mongoID, media):
         result = session.run("MATCH (a:Berita), (b:Media) WHERE b.name = $name AND a.mongoID = $mongoID CREATE (a)-[r: FROM]->(b) RETURN a,b", name = media, mongoID = mongoID)
         return result
-

@@ -226,7 +226,7 @@ def calculate_recommendation():
                 return jsonify(
                     {"email": email, "recommendations": unique_recommendations_list}
                 )
-
+            
 
 @recommendation_bp.route("/getmedia")
 def get_media():

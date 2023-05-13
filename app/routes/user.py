@@ -52,7 +52,7 @@ def activate(token):
     user = User(name, email, password)
     with driver.session() as session:
         user.create(session)
-    url = "newsmeter://minatkategori/email"
+    url = "newsmeter://minatkategori/{}".format(email)
     return redirect(url, code=302)
 
 
