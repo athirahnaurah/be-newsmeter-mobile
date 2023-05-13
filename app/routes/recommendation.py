@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from nltk.corpus import stopwords
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
@@ -15,6 +16,9 @@ from config import get_mail_username, get_mail_password, get_mail_server, get_ma
 from utils.connection import create_neo4j_connection
 from model.user import User
 from model.media import Media
+from model.news import News
+from model.category import Category
+
 
 driver = create_neo4j_connection()
 
@@ -64,7 +68,7 @@ def get_history(email):
     time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=12)
+        - datetime.timedelta(hours=24)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -87,7 +91,7 @@ def get_history(email):
 
 @recommendation_bp.route("/getnews")
 def get_news():
-    response = requests.get("http://103.59.95.88/api/get/news/1000")
+    response = requests.get("http://103.59.95.88/api/get/news/10")
     data = response.json()
     if not data:
         return None
@@ -98,21 +102,20 @@ def get_news():
     df["preprocessed_content"] = df["content"].apply(preprocess_text)
     return df.to_dict("records")
 
-
-@recommendation_bp.route("/test")
-def calculate_recommendation():
-    email = "naurathirahh@gmail.com"
+def calculate_recommendation(email):
+    # email = "naurathirahh@gmail.com"
     history_list = get_history(email)
     if not history_list:
-        return {"message": "No history found"}
+        return None
     else:
         df = get_news()
         if not df:
             return {"message": "No news found"}
         else:
+            print("start recommendation")
             recommendation_data = []
-            for i in range(0, len(df), 1000):
-                temp_df = df[i : i + 1000]
+            for i in range(0, len(df), 10):
+                temp_df = df[i : i + 10]
                 for j in range(len(history_list)):
                     concat_df = pd.concat(
                         [
@@ -221,12 +224,34 @@ def calculate_recommendation():
                     {"index": i + 1, **rec}
                     for i, rec in enumerate(unique_recommendations_list[:45])
                 ]
-
+                print("end recommendation")
+                return unique_recommendations_list
                 # Return combined recommendations as JSON response
-                return jsonify(
-                    {"email": email, "recommendations": unique_recommendations_list}
-                )
-            
+                # return jsonify(
+                #     {"email": email, "recommendations": unique_recommendations_list}
+                # )         
+
+@recommendation_bp.route("/save_recommendation", methods=["GET"])
+@jwt_required()
+def save_recommendation():
+    email = get_jwt_identity()
+    recommendations_news = calculate_recommendation(email)
+    print(recommendations_news)
+    print("calculate done")
+    if recommendations_news != None:
+        for recommendation in recommendations_news:
+            news = News(recommendation["_id"], recommendation["original"], recommendation["title"], recommendation["content"], recommendation["image"], recommendation["date"], recommendation["media"], recommendation["kategori"])
+            with driver.session() as session:
+                news_exist = News.find_news(session, recommendation["_id"])
+                if news_exist == None:
+                    with driver.session() as session:
+                        news.save_news(session)
+                with driver.session() as session:
+                    News.create_relation_similar(session, recommendation["id_history"], recommendation["_id"], recommendation["score"])
+                    User.create_relation_recommend(session, email, recommendation["_id"], recommendation["index"])
+        return jsonify({"message":"Recommendation saved successfully"}), 201 
+    else:
+        return jsonify({"message":"No recommendation"})
 
 @recommendation_bp.route("/getmedia")
 def get_media():
@@ -235,3 +260,32 @@ def get_media():
 
     media_list = [dict(m) for m in media_data]
     return media_list
+
+@recommendation_bp.route("/recommendation", methods=["GET"])
+@jwt_required()
+def get_recommendation():
+    data = []
+    recommendation_list = {}
+    email = get_jwt_identity()
+    with driver.session() as session:
+        news = User.get_recommendation(session, email)
+    for record in news:
+        with driver.session() as session:
+            score = News.get_similarity(session, record["_id"])
+            media = Media.get_relation_media(session, record["_id"])
+            kategori = Category.get_relation_category(session, record["_id"])
+            recommendation_list["_id"] = record["_id"]
+            recommendation_list["score"] = score
+            recommendation_list["original"] = record["original"]
+            recommendation_list["title"] = record["title"]
+            recommendation_list["content"] = record["content"]
+            recommendation_list["image"] = record["image"]
+            recommendation_list["date"] = record["date"]
+            recommendation_list["media"] = media
+            recommendation_list["kategori"] = kategori
+            data.append(recommendation_list.copy())
+    return jsonify(data)
+
+
+
+

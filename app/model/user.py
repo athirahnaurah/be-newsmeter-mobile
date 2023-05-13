@@ -86,3 +86,23 @@ class User:
             time=time,
         )
         return result
+    
+    def create_relation_recommend(session, email, recomID, index):
+        result = session.run("MATCH (a:User), (b:Berita) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (a)-[r: HAS_RECOMMEND {index: $index}]->(b) RETURN a, b", email = email, mongoID = recomID, index = index)
+        return result
+
+    def get_recommendation(session, email):
+        result = session.run("match (a:User)-[r:HAS_RECOMMEND]->(b:Berita) WHERE a.email = $email RETURN b.mongoID, b.original, b.title, b.content, b.date, b.image, r.index ORDER BY r.index DESC LIMIT 45", email = email)
+        data = []
+        news = {}
+        for record in result:
+            news["_id"] = record["b.mongoID"]
+            news["original"] = record["b.original"]
+            news["title"] = record["b.title"]
+            news["content"] = record["b.content"]
+            news["image"] = record["b.image"]
+            news["date"] = record["b.date"]
+            news["index"] = record["r.index"]
+            data.append(news.copy())
+        return data
+

@@ -14,14 +14,14 @@ driver = create_neo4j_connection()
 def history():
     current_user = get_jwt_identity()
     data = request.get_json()
-    news  = News(data["_id"], data["original"], data["title"], data["content"], data["image"], data["date"])
+    news  = News(data["_id"], data["original"], data["title"], data["content"], data["image"], data["date"], data["media"], data["kategori"])
     with driver.session() as session:
         news_exist = News.find_news(session, data["_id"])
         if news_exist == None:
             with driver.session() as session:
                 news.save_news(session)
-                News.create_relation_to_media(session, data["_id"], data["media"])
-                Category.create_relation_to_news(session, data["_id"], data["kategori"])
+                # News.create_relation_to_media(session, data["_id"], data["media"])
+                # Category.create_relation_to_news(session, data["_id"], data["kategori"])
     check_read(current_user, data["_id"], data["media"])
     with driver.session() as session:
         User.save_history(session, current_user, data["_id"], data["timestamp"])
