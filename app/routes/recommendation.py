@@ -61,14 +61,13 @@ def preprocess_text(text):
     return text
 
 
-@recommendation_bp.route("/gethistory")
 def get_history(email):
     email = email
     time_now = datetime.datetime.now().timestamp()
     time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=24)
+        - datetime.timedelta(hours=12)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -89,8 +88,7 @@ def get_history(email):
     return data.to_dict("records")
 
 
-@recommendation_bp.route("/getnews")
-def get_news():
+def get_news(email):
     response = requests.get("http://103.59.95.88/api/get/news/10")
     data = response.json()
     if not data:
@@ -100,15 +98,22 @@ def get_news():
         ["_id", "original", "title", "content", "image", "date", "kategori", "media"]
     ]
     df["preprocessed_content"] = df["content"].apply(preprocess_text)
+
+    history_list = get_history(email)
+    if history_list is not None:
+        history_df = pd.DataFrame.from_dict(history_list)
+        # filter news that already exists in history
+        df = df[~df["_id"].isin(history_df["_id"])]
+
     return df.to_dict("records")
 
+
 def calculate_recommendation(email):
-    # email = "naurathirahh@gmail.com"
     history_list = get_history(email)
     if not history_list:
         return None
     else:
-        df = get_news()
+        df = get_news(email)
         if not df:
             return {"message": "No news found"}
         else:
@@ -213,23 +218,33 @@ def calculate_recommendation(email):
                 # Convert the dictionary of unique recommendations back into a list
                 unique_recommendations_list = list(unique_recommendations.values())
 
-                # Remove recommendations that are already in user's history
-                unique_recommendations_list = [
-                    rec
-                    for rec in unique_recommendations_list
-                    if rec["_id"] not in [h["_id"] for h in history_list]
-                ]
+                # # Remove recommendations that are already in user's history
+                # unique_recommendations_list = [
+                #     rec
+                #     for rec in unique_recommendations_list
+                #     if rec["_id"] not in [h["_id"] for h in history_list]
+                # ]
 
-                unique_recommendations_list = [
-                    {"index": i + 1, **rec}
-                    for i, rec in enumerate(unique_recommendations_list[:45])
-                ]
+                max_index = get_index_max(email)
+
+                if max_index is not None:
+                    unique_recommendations_list = [
+                        {"index": i + max_index + 1, **rec}
+                        for i, rec in enumerate(unique_recommendations_list[:45])
+                    ]
+                else:
+                    unique_recommendations_list = [
+                        {"index": i + 1, **rec}
+                        for i, rec in enumerate(unique_recommendations_list[:45])
+                    ]
+
                 print("end recommendation")
                 return unique_recommendations_list
                 # Return combined recommendations as JSON response
                 # return jsonify(
                 #     {"email": email, "recommendations": unique_recommendations_list}
-                # )         
+                # )
+
 
 @recommendation_bp.route("/save_recommendation", methods=["GET"])
 @jwt_required()
@@ -240,20 +255,36 @@ def save_recommendation():
     print("calculate done")
     if recommendations_news != None:
         for recommendation in recommendations_news:
-            news = News(recommendation["_id"], recommendation["original"], recommendation["title"], recommendation["content"], recommendation["image"], recommendation["date"], recommendation["media"], recommendation["kategori"])
+            news = News(
+                recommendation["_id"],
+                recommendation["original"],
+                recommendation["title"],
+                recommendation["content"],
+                recommendation["image"],
+                recommendation["date"],
+                recommendation["media"],
+                recommendation["kategori"],
+            )
             with driver.session() as session:
                 news_exist = News.find_news(session, recommendation["_id"])
                 if news_exist == None:
                     with driver.session() as session:
                         news.save_news(session)
                 with driver.session() as session:
-                    News.create_relation_similar(session, recommendation["id_history"], recommendation["_id"], recommendation["score"])
-                    User.create_relation_recommend(session, email, recommendation["_id"], recommendation["index"])
-        return jsonify({"message":"Recommendation saved successfully"}), 201 
+                    News.create_relation_similar(
+                        session,
+                        recommendation["id_history"],
+                        recommendation["_id"],
+                        recommendation["score"],
+                    )
+                    User.create_relation_recommend(
+                        session, email, recommendation["_id"], recommendation["index"]
+                    )
+        return jsonify({"message": "Recommendation saved successfully"}), 201
     else:
-        return jsonify({"message":"No recommendation"})
+        return jsonify({"message": "No recommendation"})
 
-@recommendation_bp.route("/getmedia")
+
 def get_media():
     with driver.session() as session:
         media_data = Media.get_all_media(session)
@@ -261,7 +292,14 @@ def get_media():
     media_list = [dict(m) for m in media_data]
     return media_list
 
-@recommendation_bp.route("/recommendation", methods=["GET"])
+
+def get_index_max(email):
+    with driver.session() as session:
+        index = News.get_index_max(session, email)
+    return index
+
+
+@recommendation_bp.route("/get_recommendation", methods=["GET"])
 @jwt_required()
 def get_recommendation():
     data = []
@@ -284,10 +322,37 @@ def get_recommendation():
             recommendation_list["media"] = media
             recommendation_list["kategori"] = kategori
             data.append(recommendation_list.copy())
-    return jsonify(data)
 
-@recommendation_bp.route("/index", methods=["GET"])
-def test_get_index_max():
-    with driver.session() as session:
-        index = News.get_index_max(session, "naurathirahh@gmail.com")
-    return jsonify(index)
+    df = pd.DataFrame(data)
+
+    # Add views column to df
+    df["view"] = 0
+
+    # Get media data
+    media = get_media()
+
+    # Add view based on media name
+    for m in media:
+        medianame = m["nama"]
+        df.loc[df["media"] == medianame, "view"] = m["view"]
+
+    # Sort data by score, date, view
+    df = df.sort_values(["score", "date", "view"], ascending=[False, False, False])
+    sorted_data = df[
+        [
+            "_id",
+            "score",
+            "original",
+            "title",
+            "content",
+            "image",
+            "date",
+            "media",
+            "kategori",
+        ]
+    ].to_dict(orient="records")
+
+    # kalau mau return view juga
+    # sorted_data = df.to_dict(orient="records")
+
+    return jsonify(sorted_data)
