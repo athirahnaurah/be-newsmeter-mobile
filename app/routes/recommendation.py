@@ -286,6 +286,8 @@ def get_recommendation():
             data.append(recommendation_list.copy())
     return jsonify(data)
 
-
-
-
+@recommendation_bp.route("/index", methods=["GET"])
+def test_get_index_max():
+    with driver.session() as session:
+        index = News.get_index_max(session, "naurathirahh@gmail.com")
+    return jsonify(index)

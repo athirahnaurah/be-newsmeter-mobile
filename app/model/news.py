@@ -30,3 +30,7 @@ class News:
     def get_similarity(session, recomID):
         result = session.run("MATCH(b:Berita)-[r:SIMILAR]->(br:Berita) WHERE br.mongoID = $_id return r.score", _id = recomID)
         return result.single()[0]
+
+    def get_index_max(session, email):
+        result = session.run("MATCH (a:User)-[r:HAS_RECOMMEND]->(b:Berita) WHERE a.email = $email RETURN r.index ORDER BY r.index DESC LIMIT 1", email = email)
+        return result.single()[0]
