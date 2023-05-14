@@ -50,11 +50,14 @@ def activate(token):
     email = split[1]
     password = split[2]
     user = User(name, email, password)
-    with driver.session() as session:
-        user.create(session)
-    url = "newsmeter://minatkategori/{}".format(email)
-    return redirect(url, code=302)
-
+    user_exist = User.find_by_email(session, email)
+    if user_exist:
+        return jsonify({"message":"User already registered"}), 404
+    else:
+        with driver.session() as session:
+            user.create(session)
+        url = "newsmeter://minatkategori/{}".format(email)
+        return redirect(url, code=302)
 
 def send_activation_email(name, email, token):
     msg = MIMEMultipart("alternative")
