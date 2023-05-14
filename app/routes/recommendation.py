@@ -67,7 +67,7 @@ def get_history(email):
     time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=12)
+        - datetime.timedelta(hours=72)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -298,6 +298,10 @@ def get_index_max(email):
         index = News.get_index_max(session, email)
     return index
 
+def check_relation_recommend(email):
+    with driver.session() as session:
+        recommend = News.check_relation_recommend(session, email)
+    return recommend
 
 @recommendation_bp.route("/get_recommendation", methods=["GET"])
 @jwt_required()

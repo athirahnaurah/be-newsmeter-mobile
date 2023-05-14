@@ -34,3 +34,7 @@ class News:
     def get_index_max(session, email):
         result = session.run("MATCH (a:User)-[r:HAS_RECOMMEND]->(b:Berita) WHERE a.email = $email RETURN r.index ORDER BY r.index DESC LIMIT 1", email = email)
         return result.single()[0]
+    
+    def check_relation_recommend(session, email):
+        result = session.run("MATCH (n:User)-[r:HAS_RECOMMEND]->(b:Berita) WHERE n.email = $email RETURN r", email = email)
+        return result.single()
