@@ -226,15 +226,16 @@ def calculate_recommendation(email):
                 # ]
 
                 max_index = get_index_max(email)
+                relation = check_relation_recommend(email)
 
-                if max_index is not None:
+                if relation is None:
                     unique_recommendations_list = [
-                        {"index": i + max_index + 1, **rec}
+                        {"index": i + 1, **rec}
                         for i, rec in enumerate(unique_recommendations_list[:45])
                     ]
                 else:
                     unique_recommendations_list = [
-                        {"index": i + 1, **rec}
+                        {"index": i + max_index + 1, **rec}
                         for i, rec in enumerate(unique_recommendations_list[:45])
                     ]
 
@@ -298,10 +299,13 @@ def get_index_max(email):
         index = News.get_index_max(session, email)
     return index
 
+
 def check_relation_recommend(email):
+    # email = "naurahathirahh@gmail.com"
     with driver.session() as session:
         recommend = News.check_relation_recommend(session, email)
-    return recommend
+    return jsonify(recommend)
+
 
 @recommendation_bp.route("/get_recommendation", methods=["GET"])
 @jwt_required()
