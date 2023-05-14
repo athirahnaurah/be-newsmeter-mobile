@@ -67,7 +67,7 @@ def get_history(email):
     time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=72)
+        - datetime.timedelta(hours=12)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -89,7 +89,7 @@ def get_history(email):
 
 
 def get_news(email):
-    response = requests.get("http://103.59.95.88/api/get/news/10")
+    response = requests.get("http://103.59.95.88/api/get/news/100")
     data = response.json()
     if not data:
         return None
@@ -119,8 +119,8 @@ def calculate_recommendation(email):
         else:
             print("start recommendation")
             recommendation_data = []
-            for i in range(0, len(df), 10):
-                temp_df = df[i : i + 10]
+            for i in range(0, len(df), 100):
+                temp_df = df[i : i + 100]
                 for j in range(len(history_list)):
                     concat_df = pd.concat(
                         [
@@ -225,7 +225,6 @@ def calculate_recommendation(email):
                 #     if rec["_id"] not in [h["_id"] for h in history_list]
                 # ]
 
-                max_index = get_index_max(email)
                 relation = check_relation_recommend(email)
 
                 if relation is None:
@@ -234,6 +233,7 @@ def calculate_recommendation(email):
                         for i, rec in enumerate(unique_recommendations_list[:45])
                     ]
                 else:
+                    max_index = get_index_max(email)
                     unique_recommendations_list = [
                         {"index": i + max_index + 1, **rec}
                         for i, rec in enumerate(unique_recommendations_list[:45])
@@ -301,10 +301,9 @@ def get_index_max(email):
 
 
 def check_relation_recommend(email):
-    # email = "naurahathirahh@gmail.com"
     with driver.session() as session:
         recommend = News.check_relation_recommend(session, email)
-    return jsonify(recommend)
+    return recommend
 
 
 @recommendation_bp.route("/get_recommendation", methods=["GET"])
@@ -315,52 +314,55 @@ def get_recommendation():
     email = get_jwt_identity()
     with driver.session() as session:
         news = User.get_recommendation(session, email)
-    for record in news:
-        with driver.session() as session:
-            score = News.get_similarity(session, record["_id"])
-            media = Media.get_relation_media(session, record["_id"])
-            kategori = Category.get_relation_category(session, record["_id"])
-            recommendation_list["_id"] = record["_id"]
-            recommendation_list["score"] = score
-            recommendation_list["original"] = record["original"]
-            recommendation_list["title"] = record["title"]
-            recommendation_list["content"] = record["content"]
-            recommendation_list["image"] = record["image"]
-            recommendation_list["date"] = record["date"]
-            recommendation_list["media"] = media
-            recommendation_list["kategori"] = kategori
-            data.append(recommendation_list.copy())
+    if news:
+        for record in news:
+            with driver.session() as session:
+                score = News.get_similarity(session, record["_id"])
+                media = Media.get_relation_media(session, record["_id"])
+                kategori = Category.get_relation_category(session, record["_id"])
+                recommendation_list["_id"] = record["_id"]
+                recommendation_list["score"] = score
+                recommendation_list["original"] = record["original"]
+                recommendation_list["title"] = record["title"]
+                recommendation_list["content"] = record["content"]
+                recommendation_list["image"] = record["image"]
+                recommendation_list["date"] = record["date"]
+                recommendation_list["media"] = media
+                recommendation_list["kategori"] = kategori
+                data.append(recommendation_list.copy())
 
-    df = pd.DataFrame(data)
+        df = pd.DataFrame(data)
 
-    # Add views column to df
-    df["view"] = 0
+        # Add views column to df
+        df["view"] = 0
 
-    # Get media data
-    media = get_media()
+        # Get media data
+        media = get_media()
 
-    # Add view based on media name
-    for m in media:
-        medianame = m["nama"]
-        df.loc[df["media"] == medianame, "view"] = m["view"]
+        # Add view based on media name
+        for m in media:
+            medianame = m["nama"]
+            df.loc[df["media"] == medianame, "view"] = m["view"]
 
-    # Sort data by score, date, view
-    df = df.sort_values(["score", "date", "view"], ascending=[False, False, False])
-    sorted_data = df[
-        [
-            "_id",
-            "score",
-            "original",
-            "title",
-            "content",
-            "image",
-            "date",
-            "media",
-            "kategori",
-        ]
-    ].to_dict(orient="records")
+        # Sort data by score, date, view
+        df = df.sort_values(["score", "date", "view"], ascending=[False, False, False])
+        sorted_data = df[
+            [
+                "_id",
+                "score",
+                "original",
+                "title",
+                "content",
+                "image",
+                "date",
+                "media",
+                "kategori",
+            ]
+        ].to_dict(orient="records")
 
-    # kalau mau return view juga
-    # sorted_data = df.to_dict(orient="records")
+        # kalau mau return view juga
+        # sorted_data = df.to_dict(orient="records")
 
-    return jsonify(sorted_data)
+        return jsonify(sorted_data)
+    else:
+        return jsonify({"message:": "The user has no recommendations yet"})
