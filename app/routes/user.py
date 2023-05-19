@@ -50,7 +50,8 @@ def activate(token):
     email = split[1]
     password = split[2]
     user = User(name, email, password)
-    user_exist = User.find_by_email(session, email)
+    with driver.session() as session:
+        user_exist = User.find_by_email(session, email)
     if user_exist:
         return jsonify({"message":"User already registered"}), 404
     else:
