@@ -18,6 +18,7 @@ from model.user import User
 from model.media import Media
 from model.news import News
 from model.category import Category
+from api.api import API
 
 
 driver = create_neo4j_connection()
@@ -83,12 +84,17 @@ def get_prepocessing_history(email):
         return None
     data = pd.DataFrame.from_dict(data)
     data = data[["_id", "original", "title", "content", "image", "date"]]
+
+    # Remove duplicate entries based on the "_id" column
+    data = data.drop_duplicates(subset="_id", keep="first")
+
     data["preprocessed_content"] = data["content"].apply(preprocess_text)
     return data.to_dict("records")
 
 
+@recommendation_bp.route("/tes", methods=["GET"])
 def get_preprocessing_new_news(email):
-    response = requests.get("https://newsmeter.id/api/get/news/100")
+    response = requests.get(API.NEWS_URL)
     data = response.json()
     if not data:
         return None
