@@ -33,7 +33,7 @@ class User:
     def create_preference(session, email, kategori):
         for k in kategori:
             result = session.run(
-                "MATCH (a:User {email: $email}), (b:Kategori {name: $kategori})"
+                "MATCH (a:User {email: $email}), (b:Category {name: $kategori})"
                 "CREATE (a)-[r: HAS_PREFERENCE]->(b) RETURN a.email, b.name",
                 email=email,
                 kategori=k,
@@ -42,7 +42,7 @@ class User:
 
     def find_preference(session, email):
         result = session.run(
-            "MATCH(u:User {email: $email})-[r:HAS_PREFERENCE]->(k:Kategori) RETURN k.name",
+            "MATCH(u:User {email: $email})-[r:HAS_PREFERENCE]->(k:Category) RETURN k.name",
             email=email,
         )
         data = []
@@ -58,9 +58,16 @@ class User:
         )
         return result.single()
 
+    def find_history_media(session, email):
+        result = session.run("MATCH p=(u:User {email: $email})-[r:HAS_READ]->()-[r2:FROM]->(m:Media) RETURN m.name", email = email)
+        media = []
+        for record in result:
+            media.append((record["m.name"]))
+        return media
+
     def find_history_periodly(session, email, start, end):
         result = session.run(
-            "MATCH (u:User {email: $email})-[r:HAS_READ]->(b:Berita) WHERE r.timestamp >= $start and r.timestamp <= $end return u.email, b.mongoID, b.original, b.title, b.content, b.date, b.image",
+            "MATCH (u:User {email: $email})-[r:HAS_READ]->(b:Berita)-[r2:FROM]->(m:Media) WHERE r.timestamp >= $start and r.timestamp <= $end return u.email, b.mongoID, b.original, b.title, b.content, b.date, b.image, r.timestamp, m.name",
             email=email,
             start=start,
             end=end,
@@ -69,6 +76,8 @@ class User:
         news = {}
         for record in result:
             news["user"] = record["u.email"]
+            news["timestamp"] = record["r.timestamp"]
+            news["media"] = record["m.name"]
             news["_id"] = record["b.mongoID"]
             news["original"] = record["b.original"]
             news["title"] = record["b.title"]

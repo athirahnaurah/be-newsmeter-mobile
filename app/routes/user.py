@@ -140,4 +140,4 @@ def get_preference():
     if preference:
         return jsonify(preference), 200
     else:
-        return jsonify({"message": "User preferences not found"}), 404
+        return jsonify(preference), 200
