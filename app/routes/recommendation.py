@@ -92,13 +92,11 @@ def get_prepocessing_history(email):
     return data.to_dict("records")
 
 
-@recommendation_bp.route("/tes", methods=["GET"])
 def get_preprocessing_new_news(email):
     response = requests.get(API.NEWS_URL)
     data = response.json()
     if not data:
         return None
-
     df = pd.DataFrame.from_dict(data)
     df = df[
         ["_id", "original", "title", "content", "image", "date", "kategori", "media"]
@@ -241,6 +239,7 @@ def sort_recommendation(email):
     return unique_recommendations_list
 
 
+@recommendation_bp.route("/getmedia", methods=["GET"])
 def get_media():
     with driver.session() as session:
         media_data = Media.get_all_media(session)
@@ -278,27 +277,43 @@ def sort(recommendations):
     # Sort data by score, date, view
     df = df.sort_values(["score", "date", "view"], ascending=[False, False, False])
 
-    return df[
-        [
-            "_id",
-            "score",
-            "original",
-            "title",
-            "content",
-            "image",
-            "date",
-            "media",
-            "kategori",
-        ]
-    ].to_dict(orient="records")
+    if "id_history" in df.columns:
+        return df[
+            [
+                "_id",
+                "id_history",
+                "score",
+                "original",
+                "title",
+                "content",
+                "image",
+                "date",
+                "media",
+                "kategori",
+            ]
+        ].to_dict(orient="records")
+    else:
+        return df[
+            [
+                "_id",
+                "score",
+                "original",
+                "title",
+                "content",
+                "image",
+                "date",
+                "media",
+                "kategori",
+            ]
+        ].to_dict(orient="records")
+
 
 # media for get all archived
 @recommendation_bp.route("/test2", methods=["GET"])
 def get_history_user_per_day():
     time_now = datetime.datetime.now().timestamp()
     time_24_hours_ago = (
-        datetime.datetime.now()
-        - datetime.timedelta(hours=24)
+        datetime.datetime.now() - datetime.timedelta(hours=24)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -319,6 +334,7 @@ def get_history_user_per_day():
         record_user[hour].append(record["media"])
     return jsonify(record_user), 200
 
+
 # media from query distinct
 @recommendation_bp.route("/test3", methods=["GET"])
 def get_same_media_views():
@@ -326,10 +342,31 @@ def get_same_media_views():
         media = Media.get_all_media(session)
     media2 = media
     archived = []
-    filter_media = list(filter(lambda obj1: any(obj1["view"] == obj2["view"] and obj1["view"] != 0 for obj2 in media2), media))
+    filter_media = list(
+        filter(
+            lambda obj1: any(
+                obj1["view"] == obj2["view"] and obj1["view"] != 0 for obj2 in media2
+            ),
+            media,
+        )
+    )
     for media in filter_media:
         archived.append(media["nama"])
+
+    # media_count = {}
+    # for media in archived:
+    #     if media in media_count:
+    #         media_count[media] += 1
+    #     else:
+    #         media_count[media] = 1
+
+    # result = [{"nama": media, "view": media_count[media]} for media in media_count]
+    # return jsonify(result)
+
+    # return media_count
+
     return jsonify(archived)
+
 
 @recommendation_bp.route("/save_recommendation", methods=["GET"])
 @jwt_required()
