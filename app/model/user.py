@@ -42,7 +42,7 @@ class User:
 
     def find_preference(session, email):
         result = session.run(
-            "MATCH(u:User {email: $email})-[r:HAS_PREFERENCE]->(k:Category) RETURN k.name",
+            "MATCH(u:User {email: $email})-[r:HAS_PREFERENCE]->(k:Kategori) RETURN k.name",
             email=email,
         )
         data = []

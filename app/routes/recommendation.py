@@ -329,6 +329,7 @@ def get_same_media_views():
     filter_media = list(filter(lambda obj1: any(obj1["view"] == obj2["view"] and obj1["view"] != 0 for obj2 in media2), media))
     for media in filter_media:
         archived.append(media["nama"])
+        print("media:", media["nama"], "view:", media["view"])
     return jsonify(archived)
 
 @recommendation_bp.route("/save_recommendation", methods=["GET"])
