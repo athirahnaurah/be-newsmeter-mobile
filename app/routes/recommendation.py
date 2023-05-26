@@ -239,13 +239,22 @@ def sort_recommendation(email):
     return unique_recommendations_list
 
 
+# def get_media():
+#     with driver.session() as session:
+#         media_data = Media.get_all_media(session)
+#     media_list = [dict(m) for m in media_data]
+#     return media_list
+
+
 @recommendation_bp.route("/getmedia", methods=["GET"])
 def get_media():
-    with driver.session() as session:
-        media_data = Media.get_all_media(session)
-
-    media_list = [dict(m) for m in media_data]
-    return media_list
+    response = requests.get(API.MEDIA_URL)
+    data = response.json()
+    formatted_response = []
+    for item in data:
+        formatted_item = {"nama": item["_id"]["media"], "view": item["total"]}
+        formatted_response.append(formatted_item)
+    return formatted_response
 
 
 def get_index_max(email):
