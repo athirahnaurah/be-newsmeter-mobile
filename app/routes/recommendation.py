@@ -1,7 +1,8 @@
 import re, requests
 import pandas as pd
 import numpy as np
-import datetime
+import time, datetime
+from datetime import timedelta
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from nltk.corpus import stopwords
@@ -67,7 +68,7 @@ def get_prepocessing_history(email):
     time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=12)
+        - datetime.timedelta(hours=6)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -128,12 +129,20 @@ def calculate_recommendation(email):
         return None
     else:
         print("start preprocessing")
+        start = time.time()
         df = get_preprocessing_new_news(email)
+        end = time.time()
+        delta = timedelta(seconds= end - start)
+        hours = delta.seconds // 3600
+        minutes = (delta.seconds % 3600) // 60
+        seconds = delta.seconds % 60
         print("end preprocessing")
+        print("duration preprocessing: {} hours, {} minutes, {} seconds".format(hours, minutes, seconds))
         if not df:
             return {"message": "No news found"}
         else:
             print("start tf-idf svd cosine-similarity")
+            start = time.time()
             recommendation_data = []
             for i in range(0, len(df), 100):
                 temp_df = df[i : i + 100]
@@ -190,6 +199,8 @@ def calculate_recommendation(email):
                         result["recommendation"].append(recommendation)
                     recommendation_data.append(result)
                     print("end tf-idf svd cosine similarity")
+                    end = time.time()
+                    print("duration LSA: ", end - start, "seconds")
     return recommendation_data
 
 
@@ -317,11 +328,20 @@ def sort(recommendations):
 def save_recommendation():
     email = get_jwt_identity()
     print("Start recommendation")
+    start = time.time()
     recommendations_news = sort_recommendation(email)
+    end = time.time()
+    delta = timedelta(seconds= end - start)
+    hours = delta.seconds // 3600
+    minutes = (delta.seconds % 3600) // 60
+    seconds = delta.seconds % 60
+    print("duration recommendation: {} hours, {} minutes, {} seconds".format(hours, minutes, seconds))
     if recommendations_news != None:
         print("Result Recommendation:")
+        i = 0
         for logRecom in recommendations_news:
-            print("_id:", logRecom["_id"]," title:", logRecom["title"], " date:", logRecom["date"], " score:", logRecom["score"])
+            i = i + 1
+            print(i,")","_id:", logRecom["_id"]," title:", logRecom["title"], " date:", logRecom["date"], " score:", logRecom["score"])
         for recommendation in recommendations_news:
             news = News(
                 recommendation["_id"],
@@ -378,6 +398,10 @@ def get_recommendation():
                 recommendation_list["kategori"] = kategori
                 data.append(recommendation_list.copy())
         sorted_data = sort(data)
+        i = 0
+        for logSortedData in sorted_data:
+            i = i+1
+            print(i,")", "_id:", logSortedData["_id"]," title:", logSortedData["title"], " date:", logSortedData["date"], " score:", logSortedData["score"])
         return jsonify(sorted_data)
     else:
         return jsonify({"message:": "The user has no recommendations yet"})
