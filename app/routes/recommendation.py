@@ -56,7 +56,7 @@ def remove_stopwords(text):
 
 def preprocess_text(text):
     text = remove_html_tags(text)
-    # text = stemming(text)
+    text = stemming(text)
     text = case_folding(text)
     text = remove_stopwords(text)
     return text
@@ -67,7 +67,7 @@ def get_prepocessing_history(email):
     time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=48)
+        - datetime.timedelta(hours=12)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -124,13 +124,16 @@ def remove_existing_news_from_history(df, email):
 def calculate_recommendation(email):
     history_list = get_prepocessing_history(email)
     if not history_list:
+        print("No history")
         return None
     else:
+        print("start preprocessing")
         df = get_preprocessing_new_news(email)
+        print("end preprocessing")
         if not df:
             return {"message": "No news found"}
         else:
-            print("start recommendation")
+            print("start tf-idf svd cosine-similarity")
             recommendation_data = []
             for i in range(0, len(df), 100):
                 temp_df = df[i : i + 100]
@@ -186,67 +189,59 @@ def calculate_recommendation(email):
                         recommendation["content"] = concat_df.loc[index, "content"]
                         result["recommendation"].append(recommendation)
                     recommendation_data.append(result)
-
+                    print("end tf-idf svd cosine similarity")
     return recommendation_data
 
 
 def sort_recommendation(email):
     data = calculate_recommendation(email)
-    # print("Data:", data)
+    if data != None:
+        combined_recommendations = []
+        for result in data:
+            combined_recommendations.extend(result["recommendation"])
+        combined_recommendations = sort(combined_recommendations)
 
-    combined_recommendations = []
-    for result in data:
-        combined_recommendations.extend(result["recommendation"])
-    combined_recommendations = sort(combined_recommendations)
+        # print("combined_recommendations", combined_recommendations)
 
-    # print("combined_recommendations", combined_recommendations)
+        # Create a dictionary to store unique recommendations based on article ID
+        unique_recommendations = {}
 
-    # Create a dictionary to store unique recommendations based on article ID
-    unique_recommendations = {}
+        # Iterate through each recommendation in combined_recommendations
+        for recommendation in combined_recommendations:
+            id = recommendation["_id"]
 
-    # Iterate through each recommendation in combined_recommendations
-    for recommendation in combined_recommendations:
-        id = recommendation["_id"]
+            # If article ID is not already in unique_recommendations or has lower score than existing recommendation,
+            # add the recommendation to unique_recommendations
+            if (
+                id not in unique_recommendations
+                or recommendation["score"] > unique_recommendations[id]["score"]
+            ):
+                unique_recommendations[id] = recommendation
 
-        # If article ID is not already in unique_recommendations or has lower score than existing recommendation,
-        # add the recommendation to unique_recommendations
-        if (
-            id not in unique_recommendations
-            or recommendation["score"] > unique_recommendations[id]["score"]
-        ):
-            unique_recommendations[id] = recommendation
+                # Convert the dictionary of unique recommendations back into a list
+        unique_recommendations_list = list(unique_recommendations.values())
 
-            # Convert the dictionary of unique recommendations back into a list
-    unique_recommendations_list = list(unique_recommendations.values())
+        # print("Unique Recommendations List:", unique_recommendations_list)
 
-    # print("Unique Recommendations List:", unique_recommendations_list)
+        relation = check_relation_recommend(email)
+        if relation is None:
+            unique_recommendations_list = [
+                {"index": i + 1, **rec}
+                for i, rec in enumerate(unique_recommendations_list[:45])
+            ]
+        else:
+            max_index = get_index_max(email)
+            unique_recommendations_list = [
+                {"index": i + max_index + 1, **rec}
+                for i, rec in enumerate(unique_recommendations_list[:45])
+            ]
 
-    relation = check_relation_recommend(email)
-    if relation is None:
-        unique_recommendations_list = [
-            {"index": i + 1, **rec}
-            for i, rec in enumerate(unique_recommendations_list[:45])
-        ]
+        print("End recommendation")
+        # print("Final Recommendations:", unique_recommendations_list)
+        return unique_recommendations_list
     else:
-        max_index = get_index_max(email)
-        unique_recommendations_list = [
-            {"index": i + max_index + 1, **rec}
-            for i, rec in enumerate(unique_recommendations_list[:45])
-        ]
+        return None
 
-    print("End recommendation")
-    # print("Final Recommendations:", unique_recommendations_list)
-    return unique_recommendations_list
-
-
-# def get_media():
-#     with driver.session() as session:
-#         media_data = Media.get_all_media(session)
-#     media_list = [dict(m) for m in media_data]
-#     return media_list
-
-
-@recommendation_bp.route("/getmedia", methods=["GET"])
 def get_media():
     response = requests.get(API.MEDIA_URL)
     data = response.json()
@@ -317,62 +312,16 @@ def sort(recommendations):
         ].to_dict(orient="records")
 
 
-# media for get all archived
-@recommendation_bp.route("/test2", methods=["GET"])
-def get_history_user_per_day():
-    time_now = datetime.datetime.now().timestamp()
-    time_24_hours_ago = (
-        datetime.datetime.now() - datetime.timedelta(hours=24)
-    ).timestamp()
-    time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    time_24_hours_ago_str = datetime.datetime.fromtimestamp(time_24_hours_ago).strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    with driver.session() as session:
-        data = User.find_history_periodly(
-            session, "fathirahnaurah@gmail.com", time_24_hours_ago_str, time_now_str
-        )
-    record_user = {}
-    for record in data:
-        timestamp = record["timestamp"]
-        hour = timestamp.split()[1].split(":")[0]  # Mengambil jam dari timestamp
-        if hour not in record_user:
-            record_user[hour] = []
-        record_user[hour].append(record["media"])
-    return jsonify(record_user), 200
-
-
-# media from query distinct
-@recommendation_bp.route("/test3", methods=["GET"])
-def get_same_media_views():
-    with driver.session() as session:
-        media = Media.get_all_media(session)
-    media2 = media
-    archived = []
-    filter_media = list(
-        filter(
-            lambda obj1: any(
-                obj1["view"] == obj2["view"] and obj1["view"] != 0 for obj2 in media2
-            ),
-            media,
-        )
-    )
-    for media in filter_media:
-        archived.append(media["nama"])
-        print("media:", media["nama"], "view:", media["view"])
-    return jsonify(archived)
-
-
 @recommendation_bp.route("/save_recommendation", methods=["GET"])
 @jwt_required()
 def save_recommendation():
     email = get_jwt_identity()
+    print("Start recommendation")
     recommendations_news = sort_recommendation(email)
-    print(recommendations_news)
-    print("calculate done")
     if recommendations_news != None:
+        print("Result Recommendation:")
+        for logRecom in recommendations_news:
+            print("_id:", logRecom["_id"]," title:", logRecom["title"], " date:", logRecom["date"], " score:", logRecom["score"])
         for recommendation in recommendations_news:
             news = News(
                 recommendation["_id"],
@@ -428,9 +377,6 @@ def get_recommendation():
                 recommendation_list["media"] = media
                 recommendation_list["kategori"] = kategori
                 data.append(recommendation_list.copy())
-
-        # print("recom", recommendation_list)
-
         sorted_data = sort(data)
         return jsonify(sorted_data)
     else:

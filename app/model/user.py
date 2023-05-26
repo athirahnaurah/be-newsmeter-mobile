@@ -42,7 +42,7 @@ class User:
 
     def find_preference(session, email):
         result = session.run(
-            "MATCH(u:User {email: $email})-[r:HAS_PREFERENCE]->(k:Kategori) RETURN k.name",
+            "MATCH(u:User {email: $email})-[r:HAS_PREFERENCE]->(k:Category) RETURN k.name",
             email=email,
         )
         data = []
@@ -52,7 +52,7 @@ class User:
 
     def find_history(session, email, mongoID):
         result = session.run(
-            "MATCH (u:User)-[r:HAS_READ]->(b:Berita) WHERE u.email = $email AND b.mongoID = $mongoID RETURN b.title, b.content",
+            "MATCH (u:User)-[r:HAS_READ]->(b:News) WHERE u.email = $email AND b.mongoID = $mongoID RETURN b.title, b.content",
             email=email,
             mongoID=mongoID,
         )
@@ -67,7 +67,7 @@ class User:
 
     def find_history_periodly(session, email, start, end):
         result = session.run(
-            "MATCH (u:User {email: $email})-[r:HAS_READ]->(b:Berita)-[r2:FROM]->(m:Media) WHERE r.timestamp >= $start and r.timestamp <= $end return u.email, b.mongoID, b.original, b.title, b.content, b.date, b.image, r.timestamp, m.name",
+            "MATCH (u:User {email: $email})-[r:HAS_READ]->(b:News)-[r2:FROM]->(m:Media) WHERE r.datetime >= $start and r.datetime <= $end return u.email, b.mongoID, b.original, b.title, b.content, b.date, b.image, r.datetime, m.name",
             email=email,
             start=start,
             end=end,
@@ -76,7 +76,7 @@ class User:
         news = {}
         for record in result:
             news["user"] = record["u.email"]
-            news["timestamp"] = record["r.timestamp"]
+            news["datetime"] = record["r.datetime"]
             news["media"] = record["m.name"]
             news["_id"] = record["b.mongoID"]
             news["original"] = record["b.original"]
@@ -89,7 +89,7 @@ class User:
 
     def save_history(session, email, mongoID, time):
         result = session.run(
-            "MATCH (a:User), (b:Berita) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (a)-[r: HAS_READ {timestamp: $time}]->(b) RETURN a,b",
+            "MATCH (a:User), (b:News) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (a)-[r: HAS_READ {datetime: $time}]->(b) RETURN a,b",
             email=email,
             mongoID=mongoID,
             time=time,
@@ -98,7 +98,7 @@ class User:
 
     def create_relation_recommend(session, email, recomID, index):
         result = session.run(
-            "MATCH (a:User), (b:Berita) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (a)-[r: HAS_RECOMMEND {index: $index}]->(b) RETURN a, b",
+            "MATCH (a:User), (b:News) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (b)-[r: RECOMMENDED_TO {index: $index}]->(a) RETURN a, b",
             email=email,
             mongoID=recomID,
             index=index,
@@ -107,18 +107,18 @@ class User:
 
     def get_recommendation(session, email):
         result = session.run(
-            "match (a:User)-[r:HAS_RECOMMEND]->(b:Berita) WHERE a.email = $email RETURN b.mongoID, b.original, b.title, b.content, b.date, b.image, r.index ORDER BY r.index DESC LIMIT 45",
+            "match (a:News)-[r:RECOMMENDED_TO]->(b:User) WHERE b.email = $email RETURN a.mongoID, a.original, a.title, a.content, a.date, a.image, r.index ORDER BY r.index DESC LIMIT 45",
             email=email,
         )
         data = []
         news = {}
         for record in result:
-            news["_id"] = record["b.mongoID"]
-            news["original"] = record["b.original"]
-            news["title"] = record["b.title"]
-            news["content"] = record["b.content"]
-            news["image"] = record["b.image"]
-            news["date"] = record["b.date"]
+            news["_id"] = record["a.mongoID"]
+            news["original"] = record["a.original"]
+            news["title"] = record["a.title"]
+            news["content"] = record["a.content"]
+            news["image"] = record["a.image"]
+            news["date"] = record["a.date"]
             news["index"] = record["r.index"]
             data.append(news.copy())
         return data
