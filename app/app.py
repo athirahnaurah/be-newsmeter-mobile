@@ -19,6 +19,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 load_dotenv()
 bcrypt = Bcrypt(app)
+app.secret_key = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=90)
 jwt = JWTManager(app)
@@ -28,7 +29,7 @@ app.register_blueprint(recommendation_bp)
 
 
 if __name__ == "__main__":
-    schedule.every().day.at("00:00").do(call_save_recommendation)
+    schedule.every().day.at("16:13").do(call_save_recommendation)
     schedule.every().day.at("00:00").do(call_save_recommendation)
     schedule_thread = threading.Thread(target=schedule_save_recommendation)
     schedule_thread.start()

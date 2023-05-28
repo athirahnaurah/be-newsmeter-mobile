@@ -1,11 +1,10 @@
 import os
-from dotenv import load_dotenv
 import re, requests
 import pandas as pd
 import numpy as np
 import time, datetime
 from datetime import timedelta
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from nltk.corpus import stopwords
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
@@ -17,6 +16,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
+from utils.token import set_token, use_token
 from model.user import User
 from model.media import Media
 from model.news import News
@@ -26,7 +26,6 @@ import schedule
 import time
 import dotenv
 
-load_dotenv()
 
 driver = create_neo4j_connection()
 
@@ -74,7 +73,7 @@ def get_prepocessing_history(email):
     time_6_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=1)
+        - datetime.timedelta(hours=12)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -156,7 +155,7 @@ def calculate_recommendation(email):
             recommendation_data = []
             for i in range(0, len(df), len(df)):
                 temp_df = df[i : i + len(df)]
-                print(len(df))
+                print("LSA 1 history with", len(df), "news")
                 for j in range(len(history_list)):
                     concat_df = pd.concat(
                         [
@@ -209,10 +208,10 @@ def calculate_recommendation(email):
                         recommendation["content"] = concat_df.loc[index, "content"]
                         result["recommendation"].append(recommendation)
                     recommendation_data.append(result)
-                    print("end tf-idf svd cosine similarity")
-                    end = time.time()
-                    print("duration LSA: ", end - start, "seconds")
-    return jsonify(recommendation_data)
+            print("end tf-idf svd cosine similarity")
+            end = time.time()
+            print("duration LSA: ", end - start, "seconds")
+    return recommendation_data
 
 
 def sort_recommendation(email):
@@ -238,7 +237,7 @@ def sort_recommendation(email):
 
         print("End recommendation")
         # print("Final Recommendations:", combined_recommendations)
-        return jsonify(combined_recommendations)
+        return combined_recommendations
     else:
         return None
 
@@ -426,19 +425,20 @@ def get_recommendation():
         return jsonify({"message:": "The user has no recommendations yet"})
 
 def call_save_recommendation():
-    token = os.getenv('TOKEN')
-    headers = {
-        'Authorization': f'Bearer {token}'
-            }
-    if token == None:
-        print("Not Login")
-    else: 
-        response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
-        if response.status_code == 200:
-            data = response.json()
-            print(data)
-        else:
-            print("Permintaan API gagal dengan kode status:", response.status_code)
+    token = use_token()
+    print(token)
+    # headers = {
+    #     'Authorization': f'Bearer {token}'
+    #         }
+    # if token == None:
+    #     print("Not Login")
+    # else: 
+    #     response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
+    #     if response.status_code == 201 or response.status_code == 200:
+    #         data = response.json()
+    #         print(data)
+    #     else:
+    #         print("Permintaan API gagal dengan kode status:", response.status_code)
 
 def schedule_save_recommendation():
     while True:
