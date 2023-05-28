@@ -429,19 +429,19 @@ def get_recommendation():
 
 def call_save_recommendation():
     token = use_token()
-    print(token)
-    # headers = {
-    #     'Authorization': f'Bearer {token}'
-    #         }
-    # if token == None:
-    #     print("Not Login")
-    # else: 
-    #     response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
-    #     if response.status_code == 201 or response.status_code == 200:
-    #         data = response.json()
-    #         print(data)
-    #     else:
-    #         print("Permintaan API gagal dengan kode status:", response.status_code)
+    print("token user:",token)
+    headers = {
+        'Authorization': f'Bearer {token}'
+            }
+    if token == None:
+        print("Not Login")
+    else: 
+        response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
+        if response.status_code == 201 or response.status_code == 200:
+            data = response.json()
+            print(data)
+        else:
+            print("Request API failed with status code:", response.status_code)
 
 
 def schedule_save_recommendation():
