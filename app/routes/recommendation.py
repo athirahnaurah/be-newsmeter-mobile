@@ -71,7 +71,7 @@ def preprocess_text(text):
 
 def get_prepocessing_history(email):
     time_now = datetime.datetime.now().timestamp()
-    time_12_hours_ago = (
+    time_6_hours_ago = (
         # edit jam history
         datetime.datetime.now()
         - datetime.timedelta(hours=1)
@@ -79,13 +79,13 @@ def get_prepocessing_history(email):
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
     )
-    time_12_hours_ago_str = datetime.datetime.fromtimestamp(time_12_hours_ago).strftime(
+    time_6_hours_ago_str = datetime.datetime.fromtimestamp(time_6_hours_ago).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
     )
     with driver.session() as session:
         user = User.find_by_email(session, email)
         data = User.find_history_periodly(
-            session, email, time_12_hours_ago_str, time_now_str
+            session, email, time_6_hours_ago_str, time_now_str
         )
     if not data:
         return None
@@ -134,24 +134,29 @@ def calculate_recommendation(email):
         print("No history")
         return None
     else:
-        print("start preprocessing")
+        print("start preprocessing new news")
         start = time.time()
         df = get_preprocessing_new_news(email)
         end = time.time()
-        delta = timedelta(seconds= end - start)
+        delta = timedelta(seconds=end - start)
         hours = delta.seconds // 3600
         minutes = (delta.seconds % 3600) // 60
         seconds = delta.seconds % 60
-        print("end preprocessing")
-        print("duration preprocessing: {} hours, {} minutes, {} seconds".format(hours, minutes, seconds))
+        print("end preprocessing new news")
+        print(
+            "duration preprocessing: {} hours, {} minutes, {} seconds".format(
+                hours, minutes, seconds
+            )
+        )
         if not df:
             return {"message": "No news found"}
         else:
             print("start tf-idf svd cosine-similarity")
             start = time.time()
             recommendation_data = []
-            for i in range(0, len(df), 100):
-                temp_df = df[i : i + 100]
+            for i in range(0, len(df), len(df)):
+                temp_df = df[i : i + len(df)]
+                print(len(df))
                 for j in range(len(history_list)):
                     concat_df = pd.concat(
                         [
@@ -207,7 +212,7 @@ def calculate_recommendation(email):
                     print("end tf-idf svd cosine similarity")
                     end = time.time()
                     print("duration LSA: ", end - start, "seconds")
-    return recommendation_data
+    return jsonify(recommendation_data)
 
 
 def sort_recommendation(email):
@@ -218,86 +223,46 @@ def sort_recommendation(email):
             combined_recommendations.extend(result["recommendation"])
         combined_recommendations = sort(combined_recommendations)
 
-        # print("combined_recommendations", combined_recommendations)
-
-        # Create a dictionary to store unique recommendations based on article ID
-        unique_recommendations = {}
-
-        # Iterate through each recommendation in combined_recommendations
-        for recommendation in combined_recommendations:
-            id = recommendation["_id"]
-
-            # If article ID is not already in unique_recommendations or has lower score than existing recommendation,
-            # add the recommendation to unique_recommendations
-            if (
-                id not in unique_recommendations
-                or recommendation["score"] > unique_recommendations[id]["score"]
-            ):
-                unique_recommendations[id] = recommendation
-
-                # Convert the dictionary of unique recommendations back into a list
-        unique_recommendations_list = list(unique_recommendations.values())
-
-        # print("Unique Recommendations List:", unique_recommendations_list)
-
         relation = check_relation_recommend(email)
         if relation is None:
-            unique_recommendations_list = [
+            combined_recommendations = [
                 {"index": i + 1, **rec}
-                for i, rec in enumerate(unique_recommendations_list[:45])
+                for i, rec in enumerate(combined_recommendations[:45])
             ]
         else:
             max_index = get_index_max(email)
-            unique_recommendations_list = [
+            combined_recommendations = [
                 {"index": i + max_index + 1, **rec}
-                for i, rec in enumerate(unique_recommendations_list[:45])
+                for i, rec in enumerate(combined_recommendations[:45])
             ]
 
         print("End recommendation")
-        # print("Final Recommendations:", unique_recommendations_list)
-        return unique_recommendations_list
+        # print("Final Recommendations:", combined_recommendations)
+        return jsonify(combined_recommendations)
     else:
         return None
-
-def get_media():
-    response = requests.get(API.MEDIA_URL)
-    data = response.json()
-    formatted_response = []
-    for item in data:
-        formatted_item = {"nama": item["_id"]["media"], "view": item["total"]}
-        formatted_response.append(formatted_item)
-    return formatted_response
-
-
-def get_index_max(email):
-    with driver.session() as session:
-        index = News.get_index_max(session, email)
-    return index
-
-
-def check_relation_recommend(email):
-    with driver.session() as session:
-        recommend = News.check_relation_recommend(session, email)
-    return recommend
 
 
 def sort(recommendations):
     df = pd.DataFrame(recommendations)
-
-    # Add views column to df
     df["view"] = 0
-
-    # Get media data
     media = get_media()
-
-    # Add view based on media name
     for m in media:
         medianame = m["nama"]
         df.loc[df["media"] == medianame, "view"] = m["view"]
-
-    # Sort data by score, date, view
     df = df.sort_values(["score", "date", "view"], ascending=[False, False, False])
 
+    unique_recommendations = {}
+    for idx, recommendation in df.iterrows():
+        id = recommendation["_id"]
+        if (
+            id not in unique_recommendations
+            or recommendation["score"] > unique_recommendations[id]["score"]
+        ):
+            unique_recommendations[id] = recommendation.to_dict()
+
+    unique_recommendations_list = list(unique_recommendations.values())
+    df = pd.DataFrame(unique_recommendations_list)
     if "id_history" in df.columns:
         return df[
             [
@@ -329,6 +294,28 @@ def sort(recommendations):
         ].to_dict(orient="records")
 
 
+def get_media():
+    response = requests.get(API.MEDIA_URL)
+    data = response.json()
+    formatted_response = []
+    for item in data:
+        formatted_item = {"nama": item["_id"]["media"], "view": item["total"]}
+        formatted_response.append(formatted_item)
+    return formatted_response
+
+
+def get_index_max(email):
+    with driver.session() as session:
+        index = News.get_index_max(session, email)
+    return index
+
+
+def check_relation_recommend(email):
+    with driver.session() as session:
+        recommend = News.check_relation_recommend(session, email)
+    return recommend
+
+
 @recommendation_bp.route("/save_recommendation", methods=["GET"])
 @jwt_required()
 def save_recommendation():
@@ -337,17 +324,32 @@ def save_recommendation():
     start = time.time()
     recommendations_news = sort_recommendation(email)
     end = time.time()
-    delta = timedelta(seconds= end - start)
+    delta = timedelta(seconds=end - start)
     hours = delta.seconds // 3600
     minutes = (delta.seconds % 3600) // 60
     seconds = delta.seconds % 60
-    print("duration recommendation: {} hours, {} minutes, {} seconds".format(hours, minutes, seconds))
+    print(
+        "duration recommendation: {} hours, {} minutes, {} seconds".format(
+            hours, minutes, seconds
+        )
+    )
     if recommendations_news != None:
         print("Result Recommendation:")
         i = 0
         for logRecom in recommendations_news:
             i = i + 1
-            print(i,")","_id:", logRecom["_id"]," title:", logRecom["title"], " date:", logRecom["date"], " score:", logRecom["score"])
+            print(
+                i,
+                ")",
+                "_id:",
+                logRecom["_id"],
+                " title:",
+                logRecom["title"],
+                " date:",
+                logRecom["date"],
+                " score:",
+                logRecom["score"],
+            )
         for recommendation in recommendations_news:
             news = News(
                 recommendation["_id"],
@@ -406,8 +408,19 @@ def get_recommendation():
         sorted_data = sort(data)
         i = 0
         for logSortedData in sorted_data:
-            i = i+1
-            print(i,")", "_id:", logSortedData["_id"]," title:", logSortedData["title"], " date:", logSortedData["date"], " score:", logSortedData["score"])
+            i = i + 1
+            print(
+                i,
+                ")",
+                "_id:",
+                logSortedData["_id"],
+                " title:",
+                logSortedData["title"],
+                " date:",
+                logSortedData["date"],
+                " score:",
+                logSortedData["score"],
+            )
         return jsonify(sorted_data)
     else:
         return jsonify({"message:": "The user has no recommendations yet"})
