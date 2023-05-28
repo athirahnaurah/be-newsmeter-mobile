@@ -263,6 +263,7 @@ def sort(recommendations):
 
     unique_recommendations_list = list(unique_recommendations.values())
     df = pd.DataFrame(unique_recommendations_list)
+    df = df.drop_duplicates(subset=["_id", "score"], keep="first")
     if "id_history" in df.columns:
         return df[
             [
