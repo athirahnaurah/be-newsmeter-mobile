@@ -71,21 +71,21 @@ def preprocess_text(text):
 
 def get_prepocessing_history(email):
     time_now = datetime.datetime.now().timestamp()
-    time_6_hours_ago = (
+    time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=1)
+        - datetime.timedelta(hours=12)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
     )
-    time_6_hours_ago_str = datetime.datetime.fromtimestamp(time_6_hours_ago).strftime(
+    time_12_hours_ago_str = datetime.datetime.fromtimestamp(time_12_hours_ago).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
     )
     with driver.session() as session:
         user = User.find_by_email(session, email)
         data = User.find_history_periodly(
-            session, email, time_6_hours_ago_str, time_now_str
+            session, email, time_12_hours_ago_str, time_now_str
         )
     if not data:
         return None
@@ -212,7 +212,7 @@ def calculate_recommendation(email):
                     print("end tf-idf svd cosine similarity")
                     end = time.time()
                     print("duration LSA: ", end - start, "seconds")
-    return jsonify(recommendation_data)
+    return recommendation_data
 
 
 def sort_recommendation(email):
@@ -238,7 +238,7 @@ def sort_recommendation(email):
 
         print("End recommendation")
         # print("Final Recommendations:", combined_recommendations)
-        return jsonify(combined_recommendations)
+        return combined_recommendations
     else:
         return None
 
@@ -319,6 +319,7 @@ def check_relation_recommend(email):
 @recommendation_bp.route("/save_recommendation", methods=["GET"])
 @jwt_required()
 def save_recommendation():
+    print("save_recommendation mulai")
     email = get_jwt_identity()
     print("Start recommendation")
     start = time.time()
@@ -366,7 +367,7 @@ def save_recommendation():
                 if news_exist == None:
                     with driver.session() as session:
                         news.save_news(session)
-                with driver.session() as session:  
+                with driver.session() as session:
                     News.create_relation_similar(
                         session,
                         recommendation["id_history"],
@@ -425,20 +426,21 @@ def get_recommendation():
     else:
         return jsonify({"message:": "The user has no recommendations yet"})
 
+
 def call_save_recommendation():
-    token = os.getenv('TOKEN')
-    headers = {
-        'Authorization': f'Bearer {token}'
-            }
+    token = os.getenv("TOKEN")
+    headers = {"Authorization": f"Bearer {token}"}
     if token == None:
         print("Not Login")
-    else: 
-        response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
+    else:
+        print(token)
+        response = requests.get(API.SAVE_RECOMMENDATION_URL, headers=headers)
         if response.status_code == 200:
             data = response.json()
             print(data)
         else:
             print("Permintaan API gagal dengan kode status:", response.status_code)
+
 
 def schedule_save_recommendation():
     while True:
