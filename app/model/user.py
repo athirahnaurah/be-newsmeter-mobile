@@ -59,7 +59,10 @@ class User:
         return result.single()
 
     def find_history_media(session, email):
-        result = session.run("MATCH p=(u:User {email: $email})-[r:HAS_READ]->()-[r2:FROM]->(m:Media) RETURN m.name", email = email)
+        result = session.run(
+            "MATCH p=(u:User {email: $email})-[r:HAS_READ]->()-[r2:FROM]->(m:Media) RETURN m.name",
+            email=email,
+        )
         media = []
         for record in result:
             media.append((record["m.name"]))

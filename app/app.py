@@ -5,7 +5,11 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager
 from routes.user import user_bp
 from routes.history import history_bp
-from routes.recommendation import recommendation_bp, call_save_recommendation, schedule_save_recommendation
+from routes.recommendation import (
+    recommendation_bp,
+    call_save_recommendation,
+    schedule_save_recommendation,
+)
 from datetime import timedelta, datetime
 from flask_cors import CORS
 import schedule
