@@ -17,7 +17,10 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import json
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
 user_bp = Blueprint("user_bp", __name__)
 bcrypt = Bcrypt()
@@ -90,6 +93,14 @@ def login():
         user = User.find_by_email(session, email)
         if user and bcrypt.check_password_hash(user.password, password):
             access_token = create_access_token(identity=user.email)
+            with open('.env', 'r') as env_file:
+                lines = env_file.readlines()
+            with open('.env', 'w') as env_file:
+                for line in lines:
+                    if line.startswith('TOKEN='):
+                        env_file.write(f'TOKEN={access_token}\n')
+                    else:
+                        env_file.write(line)
             return jsonify({"access_token": access_token}), 200
         else:
             return "Invalid username or password", 401

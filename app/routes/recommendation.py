@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 import re, requests
 import pandas as pd
 import numpy as np
@@ -20,7 +22,11 @@ from model.media import Media
 from model.news import News
 from model.category import Category
 from api.api import API
+import schedule
+import time
+import dotenv
 
+load_dotenv()
 
 driver = create_neo4j_connection()
 
@@ -68,7 +74,7 @@ def get_prepocessing_history(email):
     time_12_hours_ago = (
         # edit jam history
         datetime.datetime.now()
-        - datetime.timedelta(hours=6)
+        - datetime.timedelta(hours=1)
     ).timestamp()
     time_now_str = datetime.datetime.fromtimestamp(time_now).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -358,7 +364,7 @@ def save_recommendation():
                 if news_exist == None:
                     with driver.session() as session:
                         news.save_news(session)
-                with driver.session() as session:
+                with driver.session() as session:  
                     News.create_relation_similar(
                         session,
                         recommendation["id_history"],
@@ -405,3 +411,23 @@ def get_recommendation():
         return jsonify(sorted_data)
     else:
         return jsonify({"message:": "The user has no recommendations yet"})
+
+def call_save_recommendation():
+    token = os.getenv('TOKEN')
+    headers = {
+        'Authorization': f'Bearer {token}'
+            }
+    if token == None:
+        print("Not Login")
+    else: 
+        response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
+        if response.status_code == 200:
+            data = response.json()
+            print(data)
+        else:
+            print("Permintaan API gagal dengan kode status:", response.status_code)
+
+def schedule_save_recommendation():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
