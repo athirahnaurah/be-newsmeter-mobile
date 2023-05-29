@@ -393,11 +393,10 @@ def get_recommendation():
     if news:
         for record in news:
             with driver.session() as session:
-                score = News.get_similarity(session, record["_id"])
                 media = Media.get_relation_media(session, record["_id"])
                 kategori = Category.get_relation_category(session, record["_id"])
                 recommendation_list["_id"] = record["_id"]
-                recommendation_list["score"] = score
+                recommendation_list["score"] = record["score"]
                 recommendation_list["original"] = record["original"]
                 recommendation_list["title"] = record["title"]
                 recommendation_list["content"] = record["content"]

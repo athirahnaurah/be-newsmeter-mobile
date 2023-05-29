@@ -1,5 +1,3 @@
-from neo4j import GraphDatabase, basic_auth
-
 
 class User:
     def __init__(self, name, email, password, id=None):
@@ -110,7 +108,7 @@ class User:
 
     def get_recommendation(session, email):
         result = session.run(
-            "match (a:News)-[r:RECOMMENDED_TO]->(b:User) WHERE b.email = $email RETURN a.mongoID, a.original, a.title, a.content, a.date, a.image, r.index ORDER BY r.index DESC LIMIT 45",
+            "MATCH (b:User)-[r1:HAS_READ]->(nh:News)-[r2:SIMILAR]->(a:News)-[r3:RECOMMENDED_TO]->(b:User) WHERE b.email = $email RETURN a.mongoID, a.original, a.title, a.content, a.date, a.image, r3.index, r2.score ORDER BY r3.index DESC LIMIT 45",
             email=email,
         )
         data = []
@@ -122,6 +120,7 @@ class User:
             news["content"] = record["a.content"]
             news["image"] = record["a.image"]
             news["date"] = record["a.date"]
-            news["index"] = record["r.index"]
+            news["index"] = record["r3.index"]
+            news["score"] = record["r2.score"]
             data.append(news.copy())
         return data
