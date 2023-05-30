@@ -20,8 +20,17 @@ def history():
         if news_exist == None:
             with driver.session() as session:
                 news.save_news(session)
+    check_read_media(current_user, data["media"])
     with driver.session() as session:
         User.save_history(session, current_user, data["_id"], data["timestamp"])
     return jsonify({"message":"History saved successfully"}), 201
 
+def check_read_media(user, media):
+    with driver.session() as session:
+        visited = User.find_history_media(session, user)
+        if media not in visited:
+            with driver.session() as session:
+                view = Media.find_total_view(session, media)
+                view += 1
+                Media.set_total_view(session, view, media)
 

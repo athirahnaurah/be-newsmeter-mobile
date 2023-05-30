@@ -245,9 +245,9 @@ def sort_recommendation(email):
 def sort(recommendations):
     df = pd.DataFrame(recommendations)
     df["view"] = 0
-    media = get_media()
+    media = Media.get_all_media()
     for m in media:
-        medianame = m["nama"]
+        medianame = m["name"]
         df.loc[df["media"] == medianame, "view"] = m["view"]
     df = df.sort_values(["score", "date", "view"], ascending=[False, False, False])
 
@@ -292,17 +292,6 @@ def sort(recommendations):
                 "kategori",
             ]
         ].to_dict(orient="records")
-
-
-def get_media():
-    response = requests.get(API.MEDIA_URL)
-    data = response.json()
-    formatted_response = []
-    for item in data:
-        formatted_item = {"nama": item["_id"]["media"], "view": item["total"]}
-        formatted_response.append(formatted_item)
-    return formatted_response
-
 
 def get_index_max(email):
     with driver.session() as session:
