@@ -245,7 +245,7 @@ def sort_recommendation(email):
 def sort(recommendations):
     df = pd.DataFrame(recommendations)
     df["view"] = 0
-    media = Media.get_all_media()
+    media = get_media()
     for m in media:
         medianame = m["name"]
         df.loc[df["media"] == medianame, "view"] = m["view"]
@@ -279,6 +279,7 @@ def sort(recommendations):
             ]
         ].to_dict(orient="records")
     else:
+        # return df.to_dict(orient="records")
         return df[
             [
                 "_id",
@@ -292,6 +293,15 @@ def sort(recommendations):
                 "kategori",
             ]
         ].to_dict(orient="records")
+
+
+def get_media():
+    with driver.session() as session:
+        media_data = Media.get_all_media(session)
+
+    media_list = [dict(m) for m in media_data]
+    return media_list
+
 
 def get_index_max(email):
     with driver.session() as session:
@@ -417,14 +427,14 @@ def get_recommendation():
 
 def call_save_recommendation():
     token = use_token()
-    print("token user:",token)
-    headers = {
-        'Authorization': f'Bearer {token}'
-            }
+    print("token user:", token)
+    headers = {"Authorization": f"Bearer {token}"}
     if token == None:
         print("Not Login")
-    else: 
-        response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
+    else:
+        response = requests.get(
+            "http://127.0.0.1:5000/save_recommendation", headers=headers
+        )
         if response.status_code == 201 or response.status_code == 200:
             data = response.json()
             print(data)
