@@ -256,8 +256,7 @@ def sort_recommendation(email):
 def sort(recommendations):
     df = pd.DataFrame(recommendations)
     df["view"] = 0
-    with driver.session() as session:
-        media = Media.get_all_media(session)
+    media = get_media()
     for m in media:
         medianame = m["name"]
         df.loc[df["media"] == medianame, "view"] = m["view"]
@@ -291,6 +290,7 @@ def sort(recommendations):
             ]
         ].to_dict(orient="records")
     else:
+        # return df.to_dict(orient="records")
         return df[
             [
                 "_id",
@@ -304,6 +304,15 @@ def sort(recommendations):
                 "kategori",
             ]
         ].to_dict(orient="records")
+
+
+def get_media():
+    with driver.session() as session:
+        media_data = Media.get_all_media(session)
+
+    media_list = [dict(m) for m in media_data]
+    return media_list
+
 
 def get_index_max(email):
     with driver.session() as session:
