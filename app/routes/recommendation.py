@@ -16,7 +16,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
-from utils.token import set_token, use_token
+from utils.format_date import convert_to_string
 from model.user import User
 from model.media import Media
 from model.news import News
@@ -25,7 +25,9 @@ from api.api import API
 import schedule
 import time
 import dotenv
-
+import concurrent.futures
+import math
+from functools import partial
 
 driver = create_neo4j_connection()
 
@@ -62,7 +64,7 @@ def remove_stopwords(text):
 
 def preprocess_text(text):
     text = remove_html_tags(text)
-    text = stemming(text)
+    # text = stemming(text)
     text = case_folding(text)
     text = remove_stopwords(text)
     return text
@@ -128,7 +130,16 @@ def remove_existing_news_from_history(df, email):
 
 
 def calculate_recommendation(email):
+    print("start preprocessing history")
+    start = time.time()
     history_list = get_prepocessing_history(email)
+    end = time.time()
+    delta = timedelta(seconds=end - start)
+    hours = delta.seconds // 3600
+    minutes = (delta.seconds % 3600) // 60
+    seconds = delta.seconds % 60
+    print("end preprocessing history")
+    print("duration preprocessing: {} hours, {} minutes, {} seconds".format(hours, minutes, seconds))
     if not history_list:
         print("No history")
         return None
@@ -235,7 +246,7 @@ def sort_recommendation(email):
                 for i, rec in enumerate(combined_recommendations[:45])
             ]
 
-        print("End recommendation")
+        print("End recommendation for:", email)
         # print("Final Recommendations:", combined_recommendations)
         return combined_recommendations
     else:
@@ -245,7 +256,8 @@ def sort_recommendation(email):
 def sort(recommendations):
     df = pd.DataFrame(recommendations)
     df["view"] = 0
-    media = Media.get_all_media()
+    with driver.session() as session:
+        media = Media.get_all_media(session)
     for m in media:
         medianame = m["name"]
         df.loc[df["media"] == medianame, "view"] = m["view"]
@@ -306,11 +318,23 @@ def check_relation_recommend(email):
 
 
 @recommendation_bp.route("/save_recommendation", methods=["GET"])
-@jwt_required()
-def save_recommendation():
+def run_recommendation():
     print("save_recommendation mulai")
-    email = get_jwt_identity()
-    print("Start recommendation")
+    with driver.session() as session:
+        now = convert_to_string(datetime.datetime.now().timestamp())
+        time_12_hours_ago = convert_to_string((datetime.datetime.now() - datetime.timedelta(hours=12)).timestamp())
+        users = User.find_reader(session, time_12_hours_ago, now)
+    if users == None:
+        return jsonify({"message":"There are no users reading the news"})
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers= math.ceil(len(users)/2)) as executor:
+            result = executor.map(partial(save_recommendation), users)
+        executor.shutdown()
+        concurrent.futures.as_completed(result)
+        return jsonify({"message: ":"All tasks completed, recommendation saved successfully"}),201
+
+def save_recommendation(email):
+    print("Start recommendation for: ", email)
     start = time.time()
     recommendations_news = sort_recommendation(email)
     end = time.time()
@@ -320,26 +344,15 @@ def save_recommendation():
     seconds = delta.seconds % 60
     print(
         "duration recommendation: {} hours, {} minutes, {} seconds".format(
-            hours, minutes, seconds
+                hours, minutes, seconds
+            )
         )
-    )
     if recommendations_news != None:
-        print("Result Recommendation:")
+        print("Result Recommendation for ", email, ":")
         i = 0
         for logRecom in recommendations_news:
             i = i + 1
-            print(
-                i,
-                ")",
-                "_id:",
-                logRecom["_id"],
-                " title:",
-                logRecom["title"],
-                " date:",
-                logRecom["date"],
-                " score:",
-                logRecom["score"],
-            )
+            print(i,")","_id:",logRecom["_id"]," title:",logRecom["title"]," date:",logRecom["date"]," score:",logRecom["score"])
         for recommendation in recommendations_news:
             news = News(
                 recommendation["_id"],
@@ -349,27 +362,22 @@ def save_recommendation():
                 recommendation["image"],
                 recommendation["date"],
                 recommendation["media"],
-                recommendation["kategori"],
-            )
+                recommendation["kategori"])
             with driver.session() as session:
                 news_exist = News.find_news(session, recommendation["_id"])
-                if news_exist == None:
-                    with driver.session() as session:
-                        news.save_news(session)
+            if news_exist == None:
                 with driver.session() as session:
-                    News.create_relation_similar(
-                        session,
-                        recommendation["id_history"],
-                        recommendation["_id"],
-                        recommendation["score"],
-                    )
-                    User.create_relation_recommend(
-                        session, email, recommendation["_id"], recommendation["index"]
-                    )
-        return jsonify({"message": "Recommendation saved successfully"}), 201
+                    news.save_news(session)
+            with driver.session() as session:
+                News.create_relation_similar(
+                    session,
+                    recommendation["id_history"],
+                    recommendation["_id"],
+                    recommendation["score"])
+                User.create_relation_recommend(session, email, recommendation["_id"], recommendation["index"])
+        return "Recommendation saved successfully"
     else:
-        return jsonify({"message": "No recommendation"})
-
+        return None
 
 @recommendation_bp.route("/get_recommendation", methods=["GET"])
 @jwt_required()
@@ -416,21 +424,12 @@ def get_recommendation():
 
 
 def call_save_recommendation():
-    token = use_token()
-    print("token user:",token)
-    headers = {
-        'Authorization': f'Bearer {token}'
-            }
-    if token == None:
-        print("Not Login")
-    else: 
-        response = requests.get("http://127.0.0.1:5000/save_recommendation", headers= headers)
-        if response.status_code == 201 or response.status_code == 200:
-            data = response.json()
-            print(data)
-        else:
-            print("Request API failed with status code:", response.status_code)
-
+    response = requests.get("http://127.0.0.1:5000/save_recommendation")
+    if response.status_code == 201:
+        data = response.json()
+        print(data)
+    else:
+        print("Request API failed with status code:", response.status_code)
 
 def schedule_save_recommendation():
     while True:

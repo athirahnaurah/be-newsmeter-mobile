@@ -88,6 +88,13 @@ class User:
             data.append(news.copy())
         return data
 
+    def find_reader(session, start, end):
+        result = session.run("MATCH (b:User)-[r1:HAS_READ]->(nh:News) WHERE r1.datetime >= $start and r1.datetime <= $end RETURN DISTINCT b.email", start = start, end = end)
+        user = []
+        for record in result:
+            user.append((record["b.email"]))
+        return user
+
     def save_history(session, email, mongoID, time):
         result = session.run(
             "MATCH (a:User), (b:News) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (a)-[r: HAS_READ {datetime: $time}]->(b) RETURN a,b",

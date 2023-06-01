@@ -2,7 +2,6 @@ import os
 from cryptography.fernet import Fernet
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
-from utils.token import set_token, use_token
 from flask import Blueprint, jsonify, request, redirect, session
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import (
@@ -94,7 +93,6 @@ def login():
         user = User.find_by_email(session, email)
         if user and bcrypt.check_password_hash(user.password, password):
             access_token = create_access_token(identity=user.email)
-            set_token(access_token)
             return jsonify({"access_token": access_token}), 200
         else:
             return "Invalid username or password", 401
