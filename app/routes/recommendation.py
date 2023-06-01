@@ -336,7 +336,7 @@ def run_recommendation():
     if users == None:
         return jsonify({"message":"There are no users reading the news"})
     else:
-        with concurrent.futures.ThreadPoolExecutor(max_workers= math.ceil(len(users)/2)) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers= 10) as executor:
             result = executor.map(partial(save_recommendation), users)
         executor.shutdown()
         concurrent.futures.as_completed(result)
