@@ -91,7 +91,7 @@ def get_prepocessing_history(email):
     if not data:
         return None
     data = pd.DataFrame.from_dict(data)
-    data = data[["_id", "original", "title", "content", "image", "date"]]
+    data = data[["_id", "original", "title", "content", "image", "date", "id_has_read"]]
 
     # Remove duplicate entries based on the "_id" column
     data = data.drop_duplicates(subset="_id", keep="first")
@@ -213,6 +213,7 @@ def calculate_recommendation(email):
                         index = rec[1] - 1
                         # Get the values of the columns that you need
                         recommendation["id_history"] = str(concat_df.loc[0, "_id"])
+                        recommendation["id_has_read"] = concat_df.loc[0, "id_has_read"]
                         recommendation["_id"] = str(concat_df.loc[index, "_id"])
                         recommendation["original"] = concat_df.loc[index, "original"]
                         recommendation["title"] = concat_df.loc[index, "title"]
@@ -291,6 +292,7 @@ def sort(recommendations):
                 "date",
                 "media",
                 "kategori",
+                "id_has_read",
             ]
         ].to_dict(orient="records")
     else:
@@ -352,7 +354,8 @@ def run_recommendation():
         )
 
 
-def save_recommendation(email):
+def save_recommendation():
+    email = "naurathirahh@gmail.com"
     print("Start recommendation for: ", email)
     start = time.time()
     recommendations_news = sort_recommendation(email)
@@ -393,6 +396,7 @@ def save_recommendation(email):
                 recommendation["date"],
                 recommendation["media"],
                 recommendation["kategori"],
+                #
             )
             with driver.session() as session:
                 news_exist = News.find_news(session, recommendation["_id"])

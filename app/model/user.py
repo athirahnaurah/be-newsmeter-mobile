@@ -1,4 +1,3 @@
-
 class User:
     def __init__(self, name, email, password, id=None):
         self.id = id
@@ -68,7 +67,7 @@ class User:
 
     def find_history_periodly(session, email, start, end):
         result = session.run(
-            "MATCH (u:User {email: $email})-[r:HAS_READ]->(b:News)-[r2:FROM]->(m:Media) WHERE r.datetime >= $start and r.datetime <= $end return u.email, b.mongoID, b.original, b.title, b.content, b.date, b.image, r.datetime, m.name",
+            "MATCH (u:User {email: $email})-[r:HAS_READ]->(b:News)-[r2:FROM]->(m:Media) WHERE r.datetime >= $start and r.datetime <= $end return u.email, b.mongoID, b.original, b.title, b.content, b.date, b.image, r.datetime, m.name, id(r)",
             email=email,
             start=start,
             end=end,
@@ -85,11 +84,16 @@ class User:
             news["content"] = record["b.content"]
             news["image"] = record["b.image"]
             news["date"] = record["b.date"]
+            news["id_has_read"] = record["id(r)"]
             data.append(news.copy())
         return data
 
     def find_reader(session, start, end):
-        result = session.run("MATCH (b:User)-[r1:HAS_READ]->(nh:News) WHERE r1.datetime >= $start and r1.datetime <= $end RETURN DISTINCT b.email", start = start, end = end)
+        result = session.run(
+            "MATCH (b:User)-[r1:HAS_READ]->(nh:News) WHERE r1.datetime >= $start and r1.datetime <= $end RETURN DISTINCT b.email",
+            start=start,
+            end=end,
+        )
         user = []
         for record in result:
             user.append((record["b.email"]))
