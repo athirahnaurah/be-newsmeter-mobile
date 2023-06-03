@@ -407,9 +407,10 @@ def save_recommendation(email):
                     recommendation["id_history"],
                     recommendation["_id"],
                     recommendation["score"],
+                    recommendation["id_has_read"],
                 )
                 User.create_relation_recommend(
-                    session, email, recommendation["_id"], recommendation["index"]
+                    session, email, recommendation["_id"], recommendation["index"], recommendation["id_has_read"]
                 )
         return "Recommendation saved successfully"
     else:

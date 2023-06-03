@@ -108,18 +108,19 @@ class User:
         )
         return result
 
-    def create_relation_recommend(session, email, recomID, index):
+    def create_relation_recommend(session, email, recomID, index, idRead):
         result = session.run(
-            "MATCH (a:User), (b:News) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (b)-[r: RECOMMENDED_TO {index: $index}]->(a) RETURN a, b",
+            "MATCH (a:User), (b:News) WHERE a.email = $email AND b.mongoID = $mongoID CREATE (b)-[r: RECOMMENDED_TO {index: $index, idHasRead: $idRead}]->(a) RETURN a, b",
             email=email,
             mongoID=recomID,
             index=index,
+            idRead=idRead,
         )
         return result
 
     def get_recommendation(session, email):
         result = session.run(
-            "MATCH (b:User)-[r1:HAS_READ]->(nh:News)-[r2:SIMILAR]->(a:News)-[r3:RECOMMENDED_TO]->(b:User) WHERE b.email = $email RETURN a.mongoID, a.original, a.title, a.content, a.date, a.image, r3.index, r2.score ORDER BY r3.index DESC LIMIT 45",
+            "MATCH (b:User {email: $email})-[r1:HAS_READ]->(nh:News)-[r2:SIMILAR]->(a:News)-[r3:RECOMMENDED_TO]->(b:User) WHERE r2.idHasRead=id(r1) AND r3.idHasRead=id(r1) RETURN a.mongoID, a.original, a.title, a.content, a.date, a.image, r3.index, r2.score ORDER BY r3.index DESC LIMIT 45",
             email=email,
         )
         data = []

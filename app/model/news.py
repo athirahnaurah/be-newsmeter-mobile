@@ -19,8 +19,8 @@ class News:
         result = session.run("MATCH (n:News {mongoID: $mongoID}) RETURN n", mongoID = mongoID)
         return result.single()
 
-    def create_relation_similar(session, historyID, recomID, value):
-        result = session.run("MATCH (a:News), (b:News) WHERE a.mongoID = $history AND b.mongoID = $recom CREATE (a)-[r:SIMILAR {score: $score}]->(b) RETURN a,b", history = historyID, recom = recomID, score = value)
+    def create_relation_similar(session, historyID, recomID, value, idRead):
+        result = session.run("MATCH (a:News), (b:News) WHERE a.mongoID = $history AND b.mongoID = $recom CREATE (a)-[r:SIMILAR {score: $score, idHasRead: $idRead}]->(b) RETURN a,b", history = historyID, recom = recomID, score = value, idRead = idRead)
         return result
 
     def get_similarity(session, recomID):
