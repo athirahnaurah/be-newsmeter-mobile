@@ -354,8 +354,7 @@ def run_recommendation():
         )
 
 
-def save_recommendation():
-    email = "naurathirahh@gmail.com"
+def save_recommendation(email):
     print("Start recommendation for: ", email)
     start = time.time()
     recommendations_news = sort_recommendation(email)
@@ -396,7 +395,6 @@ def save_recommendation():
                 recommendation["date"],
                 recommendation["media"],
                 recommendation["kategori"],
-                #
             )
             with driver.session() as session:
                 news_exist = News.find_news(session, recommendation["_id"])
