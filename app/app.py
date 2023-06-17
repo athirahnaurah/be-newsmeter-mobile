@@ -7,16 +7,17 @@ from routes.user import user_bp
 from routes.history import history_bp
 from routes.recommendation import (
     recommendation_bp,
-    call_save_recommendation,
-    schedule_save_recommendation,
+    # call_save_recommendation,
+    # schedule_save_recommendation,
 )
 from datetime import timedelta, datetime
 from flask_cors import CORS
-import schedule
-import time
-import threading
-import requests
-import pytz
+
+# import schedule
+# import time
+# import threading
+# import requests
+# import pytz
 
 
 app = Flask(__name__)
@@ -33,8 +34,8 @@ app.register_blueprint(recommendation_bp)
 
 
 if __name__ == "__main__":
-    schedule.every().day.at("17:53").do(call_save_recommendation)
+    # schedule.every().day.at("17:53").do(call_save_recommendation)
     # schedule.every().day.at("00:00").do(call_save_recommendation)
-    schedule_thread = threading.Thread(target=schedule_save_recommendation)
-    schedule_thread.start()
+    # schedule_thread = threading.Thread(target=schedule_save_recommendation)
+    # schedule_thread.start()
     app.run()
