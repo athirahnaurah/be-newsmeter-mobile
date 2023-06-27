@@ -17,6 +17,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
 from utils.format_date import convert_to_string
+from utils.more_stopwords import more_stopword
 from model.user import User
 from model.media import Media
 from model.news import News
@@ -55,18 +56,19 @@ def case_folding(text):
     return text
 
 
-def remove_stopwords(text):
+def remove_stopwords():
     stopword_factory = StopWordRemoverFactory()
-    stopwords = stopword_factory.get_stop_words()
+    more_stopwords = more_stopword()
+    stopwords = stopword_factory.get_stop_words() + more_stopwords
     text = " ".join([word for word in text.split() if word not in stopwords])
     return text
 
 
 def preprocess_text(text):
-    # text = remove_html_tags(text)
-    # text = stemming(text)
-    # text = case_folding(text)
-    # text = remove_stopwords(text)
+    text = remove_html_tags(text)
+    text = stemming(text)
+    text = case_folding(text)
+    text = remove_stopwords(text)
     return text
 
 
@@ -359,9 +361,7 @@ def run_recommendation():
         )
 
 
-@recommendation_bp.route("/save", methods=["GET"])
-def save_recommendation():
-    email = "nadhifah.nur.tif20@polban.ac.id"
+def save_recommendation(email):
     print("Start recommendation for: ", email)
     print()
     start = time.time()
@@ -394,38 +394,38 @@ def save_recommendation():
                 " score:",
                 logRecom["score"],
             )
-        # for recommendation in recommendations_news:
-        #     news = News(
-        #         recommendation["_id"],
-        #         recommendation["original"],
-        #         recommendation["title"],
-        #         recommendation["content"],
-        #         recommendation["image"],
-        #         recommendation["date"],
-        #         recommendation["media"],
-        #         recommendation["kategori"],
-        #     )
-        #     with driver.session() as session:
-        #         news_exist = News.find_news(session, recommendation["_id"])
-        #     if news_exist == None:
-        #         with driver.session() as session:
-        #             news.save_news(session)
-        #     with driver.session() as session:
-        #         News.create_relation_similar(
-        #             session,
-        #             recommendation["id_history"],
-        #             recommendation["_id"],
-        #             recommendation["score"],
-        #             recommendation["id_has_read"],
-        #         )
-        #         User.create_relation_recommend(
-        #             session,
-        #             email,
-        #             recommendation["_id"],
-        #             recommendation["index"],
-        #             recommendation["id_has_read"],
-        #         )
-        # print("success save database")
+        for recommendation in recommendations_news:
+            news = News(
+                recommendation["_id"],
+                recommendation["original"],
+                recommendation["title"],
+                recommendation["content"],
+                recommendation["image"],
+                recommendation["date"],
+                recommendation["media"],
+                recommendation["kategori"],
+            )
+            with driver.session() as session:
+                news_exist = News.find_news(session, recommendation["_id"])
+            if news_exist == None:
+                with driver.session() as session:
+                    news.save_news(session)
+            with driver.session() as session:
+                News.create_relation_similar(
+                    session,
+                    recommendation["id_history"],
+                    recommendation["_id"],
+                    recommendation["score"],
+                    recommendation["id_has_read"],
+                )
+                User.create_relation_recommend(
+                    session,
+                    email,
+                    recommendation["_id"],
+                    recommendation["index"],
+                    recommendation["id_has_read"],
+                )
+        print("success save database")
         return "Recommendation saved successfully"
     else:
         return "No Recommendation"
