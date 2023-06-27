@@ -56,12 +56,13 @@ def activate(token):
     with driver.session() as session:
         user_exist = User.find_by_email(session, email)
     if user_exist:
-        return jsonify({"message":"User already registered"}), 404
+        return jsonify({"message": "User already registered"}), 404
     else:
         with driver.session() as session:
             user.create(session)
         url = "newsmeter://minatkategori/{}".format(email)
         return redirect(url, code=302)
+
 
 def send_activation_email(name, email, token):
     msg = MIMEMultipart("alternative")
@@ -144,3 +145,60 @@ def get_preference():
         return jsonify(preference), 200
     else:
         return jsonify(preference), 200
+
+
+@user_bp.route("/forgot_password", methods=["POST"])
+def forgot_password():
+    email = request.json["email"]
+    with driver.session() as session:
+        user = User.find_by_email(session, email)
+        if user:
+            # Generate a password reset token
+            reset_token = fernet.encrypt(email.encode()).decode()
+            # Send password reset email
+            send_password_reset_email(user.name, email, reset_token)
+            return jsonify({"message": "Password reset email sent"}), 200
+        else:
+            return jsonify({"message": "User not found"}), 404
+
+
+@user_bp.route("/reset_password/<token>", methods=["GET"])
+def reset_password(token):
+    try:
+        email = fernet.decrypt(token.encode()).decode()
+    except:
+        return jsonify({"message": "Invalid or expired token"}), 400
+
+    with driver.session() as session:
+        user = User.find_by_email(session, email)
+        if user:
+            # Update the user's password
+            new_password = bcrypt.generate_password_hash(
+                request.json["password"]
+            ).decode("utf-8")
+            user.update_password(session, new_password)
+            return jsonify({"message": "Password reset successful"}), 200
+        else:
+            return jsonify({"message": "User not found"}), 404
+
+
+def send_password_reset_email(name, email, token):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Password Reset Email"
+    msg["From"] = get_mail_username()
+    msg["To"] = email
+    html_file = (
+        open("template/reset_password.html")
+        .read()
+        .replace("{{name}}", name)
+        .replace("{{ token }}", str(token))
+    )
+    part2 = MIMEText(html_file, "html")
+    msg.attach(part2)
+
+    s = smtplib.SMTP(get_mail_server(), get_mail_port(), timeout=200)
+    s.starttls()
+    s.login(get_mail_username(), get_mail_password())
+    s.sendmail(get_mail_username(), email, msg.as_string())
+    s.quit()
+    return "Password reset email sent"
