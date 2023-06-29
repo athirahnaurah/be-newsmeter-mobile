@@ -2,7 +2,7 @@ import os
 from cryptography.fernet import Fernet
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
-from flask import Blueprint, jsonify, request, redirect, session
+from flask import Blueprint, jsonify, request, redirect, session, Response
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import (
     create_access_token,
@@ -57,13 +57,17 @@ def activate(token):
         user_exist = User.find_by_email(session, email)
     if user_exist:
         url = "newsmeter://minatkategori/{}".format(email)
-        return redirect(url, code=404)
+        return redirect_with_code(url, 404)
     else:
         with driver.session() as session:
             user.create(session)
         url = "newsmeter://minatkategori/{}".format(email)
-        return redirect(url, code=302)
+        return redirect_with_code(url, 302)
 
+def redirect_with_code(url, code):
+    response = Response('', status=code)
+    response.headers['Location'] = url
+    return response
 
 def send_activation_email(name, email, token):
     msg = MIMEMultipart("alternative")
