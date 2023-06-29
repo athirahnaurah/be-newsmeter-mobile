@@ -136,3 +136,11 @@ class User:
             news["score"] = record["r2.score"]
             data.append(news.copy())
         return data
+
+    def update_password(self, session, new_password):
+        self.password = new_password
+        session.run(
+            "MATCH (u:User {email: $email}) SET u.password = $new_password",
+            email=self.email,
+            new_password=self.password,
+        )
