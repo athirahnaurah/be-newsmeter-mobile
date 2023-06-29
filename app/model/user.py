@@ -120,7 +120,7 @@ class User:
 
     def get_recommendation(session, email):
         result = session.run(
-            "MATCH (b:User {email: $email})-[r1:HAS_READ]->(nh:News)-[r2:SIMILAR]->(a:News)-[r3:RECOMMENDED_TO]->(b:User) WHERE r2.idHasRead=id(r1) AND r3.idHasRead=id(r1) RETURN a.mongoID, a.original, a.title, a.content, a.date, a.image, r3.index, r2.score ORDER BY r3.index DESC LIMIT 45",
+            "MATCH (b:User {email: $email})-[r1:HAS_READ]->(nh:News)-[r2:SIMILAR]->(a:News)-[r3:RECOMMENDED_TO]->(b:User) WHERE r2.idHasRead=id(r1) AND r3.idHasRead=id(r1) RETURN a.mongoID, a.original, a.title, a.content, a.date, a.image, r3.index, r2.score ORDER BY r3.index DESC LIMIT 45   ",
             email=email,
         )
         data = []

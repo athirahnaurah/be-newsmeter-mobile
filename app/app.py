@@ -33,7 +33,7 @@ app.register_blueprint(recommendation_bp)
 
 
 if __name__ == "__main__":
-    schedule.every().day.at("17:53").do(call_save_recommendation)
+    # schedule.every().day.at("18:50").do(call_save_recommendation)
     # schedule.every().day.at("00:00").do(call_save_recommendation)
     schedule_thread = threading.Thread(target=schedule_save_recommendation)
     schedule_thread.start()

@@ -64,7 +64,7 @@ def remove_stopwords(text):
 
 def preprocess_text(text):
     text = remove_html_tags(text)
-    # text = stemming(text)
+    text = stemming(text)
     text = case_folding(text)
     text = remove_stopwords(text)
     return text
