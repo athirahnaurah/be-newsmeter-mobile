@@ -173,7 +173,7 @@ def redirect(token):
     except:
         return jsonify({"message": "Invalid or expired token"}), 400
     url = "newsmeter://resetpassword/{}".format(email)
-    return redirect(url, code=302)
+    return redirect_with_code(url, 302)
 
 @user_bp.route("/reset_password", methods=["POST"])
 def reset_password():
