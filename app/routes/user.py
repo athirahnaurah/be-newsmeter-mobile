@@ -56,7 +56,8 @@ def activate(token):
     with driver.session() as session:
         user_exist = User.find_by_email(session, email)
     if user_exist:
-        return jsonify({"message": "User already registered"}), 404
+        url = "newsmeter://minatkategori/{}".format(email)
+        return redirect(url, code=404)
     else:
         with driver.session() as session:
             user.create(session)
@@ -161,14 +162,18 @@ def forgot_password():
         else:
             return jsonify({"message": "User not found"}), 404
 
-
-@user_bp.route("/reset_password/<token>", methods=["GET"])
-def reset_password(token):
+@user_bp.route("/redirect/<token>", methods=["GET"])
+def redirect(token):
     try:
         email = fernet.decrypt(token.encode()).decode()
     except:
         return jsonify({"message": "Invalid or expired token"}), 400
+    url = "newsmeter://resetpassword/{}".format(email)
+    return redirect(url, code=302)
 
+@user_bp.route("/reset_password", methods=["POST"])
+def reset_password():
+    email = request.json["email"]
     with driver.session() as session:
         user = User.find_by_email(session, email)
         if user:
