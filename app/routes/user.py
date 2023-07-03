@@ -56,18 +56,13 @@ def activate(token):
     with driver.session() as session:
         user_exist = User.find_by_email(session, email)
     if user_exist:
-        url = "newsmeter://minatkategori/{}".format(email)
-        return redirect_with_code(url, 404)
+        url = "newsmeter://minatkategori/{}/{}".format(email,409)
+        return redirect(url)
     else:
         with driver.session() as session:
             user.create(session)
-        url = "newsmeter://minatkategori/{}".format(email)
-        return redirect_with_code(url, 302)
-
-def redirect_with_code(url, code):
-    response = Response('', status=code)
-    response.headers['Location'] = url
-    return response
+        url = "newsmeter://minatkategori/{}/{}".format(email,302)
+        return redirect(url)
 
 def send_activation_email(name, email, token):
     msg = MIMEMultipart("alternative")
@@ -173,7 +168,7 @@ def redirect(token):
     except:
         return jsonify({"message": "Invalid or expired token"}), 400
     url = "newsmeter://resetpassword/{}".format(email)
-    return redirect_with_code(url, 302)
+    return redirect(url)
 
 @user_bp.route("/reset_password", methods=["POST"])
 def reset_password():
