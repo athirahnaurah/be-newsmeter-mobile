@@ -2,7 +2,7 @@ import os
 from cryptography.fernet import Fernet
 from config import get_mail_username, get_mail_password, get_mail_server, get_mail_port
 from utils.connection import create_neo4j_connection
-from flask import Blueprint, jsonify, request, redirect, session, Response
+from flask import Blueprint, jsonify, request, redirect, session, Response, render_template
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import (
     create_access_token,
@@ -19,6 +19,7 @@ from email.mime.text import MIMEText
 import json
 from dotenv import load_dotenv
 import os
+import time
 
 load_dotenv()
 
@@ -56,13 +57,15 @@ def activate(token):
     with driver.session() as session:
         user_exist = User.find_by_email(session, email)
     if user_exist:
-        url = "newsmeter://minatkategori/{}/{}".format(email,409)
-        return redirect(url)
+        # url = "newsmeter://minatkategori/{}/{}".format(email,409)
+        # return redirect(url, code=409)
+        return render_template("activation_409.html")
     else:
         with driver.session() as session:
             user.create(session)
-        url = "newsmeter://minatkategori/{}/{}".format(email,302)
-        return redirect(url)
+        url = "newsmeter://minatkategori/{}".format(email)
+        # url = "newsmeter://minatkategori/{}/{}".format(email,302)
+        return redirect(url, code=302)
 
 def send_activation_email(name, email, token):
     msg = MIMEMultipart("alternative")
@@ -70,7 +73,7 @@ def send_activation_email(name, email, token):
     msg["From"] = get_mail_username()
     msg["To"] = email
     html_file = (
-        open("template/activation.html")
+        open("templates/activation.html")
         .read()
         .replace("{{name}}", name)
         .replace("{{ token }}", str(token))
@@ -153,22 +156,31 @@ def forgot_password():
     with driver.session() as session:
         user = User.find_by_email(session, email)
         if user:
-            # Generate a password reset token
-            reset_token = fernet.encrypt(email.encode()).decode()
-            # Send password reset email
-            send_password_reset_email(user.name, email, reset_token)
+            current_time = time.time()
+            data =  f"{email},{current_time}"
+            token = fernet.encrypt(data.encode()).decode()
+            send_password_reset_email(user.name, email, token)
             return jsonify({"message": "Password reset email sent"}), 200
         else:
             return jsonify({"message": "User not found"}), 404
 
 @user_bp.route("/redirect/<token>", methods=["GET"])
-def redirect(token):
-    try:
-        email = fernet.decrypt(token.encode()).decode()
-    except:
-        return jsonify({"message": "Invalid or expired token"}), 400
-    url = "newsmeter://resetpassword/{}".format(email)
-    return redirect(url)
+def redirect_to_app(token):
+    decryptToken = fernet.decrypt(token.encode()).decode()
+    split = decryptToken.split(",")
+    email = split[0]
+    token_time = split[1]
+
+    expiration_time = float(token_time) + 3600
+
+    if time.time() > expiration_time:
+        # url = "newsmeter://resetpassword/{}/{}".format(email,409)
+        # return redirect(url, code=409)
+        return render_template("reset_pass_409.html")
+    else:
+        # url = "newsmeter://resetpassword/{}/{}".format(email,302)
+        url = "newsmeter://resetpassword/{}".format(email)
+        return redirect(url, code=302)
 
 @user_bp.route("/reset_password", methods=["POST"])
 def reset_password():
@@ -192,7 +204,7 @@ def send_password_reset_email(name, email, token):
     msg["From"] = get_mail_username()
     msg["To"] = email
     html_file = (
-        open("template/reset_password.html")
+        open("templates/reset_password.html")
         .read()
         .replace("{{name}}", name)
         .replace("{{ token }}", str(token))
